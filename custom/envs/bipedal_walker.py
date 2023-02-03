@@ -105,7 +105,7 @@ class AugmentBipedalWalker(gym.Env):
         self.scale_vector = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=float)
         self.seed()
         self.viewer = None
-        self.render_mode = 'rgb_array_list'
+        self.render_mode = 'rgb_array'
 
         self.world = Box2D.b2World()
         self.terrain = None
@@ -531,8 +531,7 @@ class AugmentBipedalWalker(gym.Env):
 
         return np.array(state), reward, terminated, truncated, {}
 
-    def render(self, mode='human', close=False):
-        # def _render(self, mode='human', close=False):
+    def render(self, mode='rgb_array', close=False):
         if close:
             if self.viewer is not None:
                 self.viewer.close()
