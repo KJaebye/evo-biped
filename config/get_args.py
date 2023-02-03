@@ -12,7 +12,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="Write in user's arguments from terminal.")
 
     # settings
-    parser.add_argument('--domain', type=str, help='mujoco domain, must be specified to load the cfg file.', required=True)
+    parser.add_argument('--domain', type=str, help='domain, must be specified to load the cfg file.', required=True)
     parser.add_argument('--task', type=str, help='task, must be specified to load the cfg file.', required=True)
     parser.add_argument('--algo', type=str, default='PPO2', help='algorithm to train the agent')
     parser.add_argument('--use_cuda', type=bool, default=False)

@@ -120,6 +120,7 @@ class AgentPPO2(Agent):
             self.save_best_flag = False
 
     def test(self):
+
         _, log_eval = self.sample(10000)
 
     def optimize(self, iter):

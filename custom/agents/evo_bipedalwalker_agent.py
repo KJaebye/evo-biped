@@ -30,7 +30,8 @@ class EvoBipedalWalkerAgent(AgentPPO2):
         self.env = AugmentBipedalWalker()
         self.env.action_space.seed(42)
 
-        self.wrap_env_monitor()
+        if not self.training:
+            self.wrap_env_monitor()
 
     def wrap_env_monitor(self):
         if not self.training:
@@ -40,4 +41,3 @@ class EvoBipedalWalkerAgent(AgentPPO2):
             if not os.path.exists(path):
                 os.makedirs(path)
             self.env = gym.wrappers.RecordVideo(self.env, path)
-

@@ -11,6 +11,7 @@ from config.get_args import get_args
 from config.config import Config
 from utils.logger import Logger
 from custom.agents.general_agent import GeneralAgent
+from custom.agents.evo_bipedalwalker_agent import EvoBipedalWalkerAgent
 
 if __name__ == "__main__":
     args = get_args()
@@ -44,7 +45,11 @@ if __name__ == "__main__":
     start_iter = int(args.start_iter) if args.start_iter.isnumeric() else args.start_iter
 
     """ create agent """
-    agent = GeneralAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
+    if cfg.domain == 'coevo_bipedalwalker':
+        agent = EvoBipedalWalkerAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
+                         num_threads=args.num_threads, training=True, checkpoint=start_iter)
+    else:
+        agent = GeneralAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
                          num_threads=args.num_threads, training=True, checkpoint=start_iter)
 
     for iter in range(start_iter, start_iter + cfg.max_iter_num):

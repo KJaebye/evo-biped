@@ -105,6 +105,7 @@ class AugmentBipedalWalker(gym.Env):
         self.scale_vector = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=float)
         self.seed()
         self.viewer = None
+        self.render_mode = 'rgb_array_list'
 
         self.world = Box2D.b2World()
         self.terrain = None
@@ -246,9 +247,9 @@ class AugmentBipedalWalker(gym.Env):
             self.terrain_y.append(y)
             counter -= 1
             if counter == 0:
-                counter = self.np_random.randint(TERRAIN_GRASS / 2, TERRAIN_GRASS)
+                counter = self.np_random.integers(TERRAIN_GRASS / 2, TERRAIN_GRASS)
                 if state == GRASS and hardcore:
-                    state = self.np_random.randint(1, _STATES_)
+                    state = self.np_random.integers(1, _STATES_)
                     oneshot = True
                 else:
                     state = GRASS
@@ -440,7 +441,7 @@ class AugmentBipedalWalker(gym.Env):
 
         self.lidar = [LidarCallback() for _ in range(10)]
 
-        return self.step(np.array([0, 0, 0, 0]))[0]
+        return self.step(np.array([0, 0, 0, 0]))[0], {}
 
     def step(self, action):
         # self.hull.ApplyForceToCenter((0, 20), True) -- Uncomment this to receive a bit of stability help
@@ -511,23 +512,24 @@ class AugmentBipedalWalker(gym.Env):
         if (self.smalllegs or self.talllegs) and self.augment_reward:  # augments reward according to design
             reward *= self.reward_factor
 
-        done = False
+        terminated = False
+        truncated = False
         if self.game_over or pos[0] < 0:
             reward = -100
-            done = True
+            terminated = True
         if pos[0] > (TERRAIN_LENGTH - TERRAIN_GRASS) * TERRAIN_STEP:
-            done = True
+            terminated = True
 
         if self.hardcore:
             if self.timer >= BIPED_HARDCORE_LIMIT:
-                done = True
+                truncated = True
         else:
             if self.timer >= BIPED_LIMIT:
-                done = True
+                truncated = True
 
         self.timer += 1
 
-        return np.array(state), reward, done, {}
+        return np.array(state), reward, terminated, truncated, {}
 
     def render(self, mode='human', close=False):
         # def _render(self, mode='human', close=False):
@@ -621,9 +623,9 @@ if __name__ == "__main__":
     SUPPORT_KNEE_ANGLE = +0.1
     supporting_knee_angle = SUPPORT_KNEE_ANGLE
     while True:
-        s, r, done, info = env.step(a)
+        s, r, terminated, truncated, info = env.step(a)
         total_reward += r
-        if steps % 20 == 0 or done:
+        if steps % 20 == 0 or terminated:
             print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
             print("step {} total_reward {:+0.2f}".format(steps, total_reward))
             print("hull " + str(["{:+0.2f}".format(x) for x in s[0:4]]))
@@ -682,4 +684,4 @@ if __name__ == "__main__":
         a = np.clip(0.5 * a, -1.0, 1.0)
 
         env.render()
-        if done: break
+        if terminated: break
