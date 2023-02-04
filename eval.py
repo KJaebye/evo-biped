@@ -12,6 +12,7 @@ import argparse
 from config.config import Config
 from utils.logger import Logger
 from custom.agents.general_agent import GeneralAgent
+from custom.agents.bipedalwalker_agent import BipedalWalkerAgent
 from custom.agents.evo_bipedalwalker_agent import EvoBipedalWalkerAgent
 
 if __name__ == "__main__":
@@ -50,7 +51,10 @@ if __name__ == "__main__":
     iter = int(args.iter) if args.iter.isdigit() else args.iter
 
     """ create agent """
-    if cfg.domain == 'coevo_bipedalwalker':
+    if cfg.domain == 'bipedalwalker':
+        agent = BipedalWalkerAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
+                                      num_threads=1, training=False, checkpoint=iter)
+    elif cfg.domain == 'evo_bipedalwalker':
         agent = EvoBipedalWalkerAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
                          num_threads=1, training=False, checkpoint=iter)
     else:
