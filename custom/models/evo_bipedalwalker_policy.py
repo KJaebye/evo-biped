@@ -8,10 +8,6 @@ from lib.models.mlp import MLP
 
 def normal_log_density(x, mean, log_std, std):
     var = std.pow(2)
-    # print('x:', x.shape)
-    # print('mean:', mean.shape)
-    # print('log_std:', log_std.shape)
-    # print('std:', std.shape)
     log_density = -(x - mean).pow(2) / (2 * var) - 0.5 * math.log(2 * math.pi) - log_std
     return log_density.sum(1, keepdim=True)
 
@@ -28,7 +24,6 @@ class EvoBipedalWalkerPolicy(nn.Module):
         self.entire_action_dim = agent.env.entire_action_dim
         self.entire_state_dim = agent.env.entire_state_dim
 
-        self.stage = 'scale_transform'
         # scale transform
         self.scale_norm = RunningNorm(self.scale_state_dim)
         cur_dim = self.scale_state_dim
@@ -44,7 +39,7 @@ class EvoBipedalWalkerPolicy(nn.Module):
 
         # execution
         self.control_norm = RunningNorm(self.entire_state_dim)
-        cur_dim = self.control_state_dim
+        cur_dim = self.entire_state_dim
         self.control_mlp = MLP(cur_dim,
                                hidden_dims=self.cfg.policy_spec['control_mlp'],
                                activation=self.cfg.policy_spec['control_htype'])
@@ -59,17 +54,19 @@ class EvoBipedalWalkerPolicy(nn.Module):
         self.is_disc_action = False
 
     def forward(self, x):
-        if self.stage == 'scale_transform':
+        if self.agent.env.stage == 'scale_transform':
             # every rolling out the original scale vector is [1, 1, 1, 1, 1, 1, 1, 1] and transform from scratch
             scale_vector = torch.tensor(np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=float))
             scale_vector = scale_vector.unsqueeze(0)
             x = self.scale_norm(scale_vector)
             x = self.scale_mlp(x)
             scale_state_mean = self.scale_state_mean(x)
+            # limit the scale vector to [0.25, 1.75]
+            scale_state_mean = torch.ones([1, 8], dtype=torch.float) + scale_state_mean * 0.75
             scale_state_log_std = self.scale_state_log_std.expand_as(scale_state_mean).exp()
             scale_state_std = torch.exp(scale_state_log_std)
             return scale_state_mean, scale_state_log_std, scale_state_std
-        elif self.stage == 'execution':
+        elif self.agent.env.stage == 'execution':
             x = self.control_norm(x)
             x = self.control_mlp(x)
             control_action_mean = self.control_action_mean(x)
@@ -84,19 +81,18 @@ class EvoBipedalWalkerPolicy(nn.Module):
         :param x: the input is the state of RL
         :return: return the action of RL. The scale vector is listed at first then control action.
         """
-        if self.stage == 'scale_transform':
-            x = x[:self.scale_state_dim]
+        if self.agent.env.stage == 'scale_transform':
+            x = x[:, :self.scale_state_dim]
             scale_state_mean, _, scale_std = self.forward(x)
             control_action = np.array([0, 0, 0, 0])
             self.agent.env.scale_vector = scale_state_mean.numpy()[0]
-            action = np.concatenate((self.agent.env.scale_vector + 1, control_action))
+            action = np.concatenate((self.agent.env.scale_vector, control_action))
             action = torch.tensor(action).unsqueeze(0)
             return action
-        elif self.stage == 'execution':
-            x = x[self.scale_state_dim:]
+        elif self.agent.env.stage == 'execution':
             control_action_mean, _, control_action_std = self.forward(x)
             control_action = torch.normal(control_action_mean, control_action_std)
-            action = np.concatenate((self.agent.env.scale_vector, control_action))
+            action = np.concatenate((self.agent.env.scale_vector, control_action[0]))
             action = torch.tensor(action).unsqueeze(0)
             return action
         else:
@@ -104,9 +100,9 @@ class EvoBipedalWalkerPolicy(nn.Module):
 
     def get_log_prob(self, x, actions):
         action_mean, action_log_std, action_std = self.forward(x)
-        if self.stage == 'scale_transform':
+        if self.agent.env.stage == 'scale_transform':
             scale_state = actions[:, :self.scale_state_dim]
             return normal_log_density(scale_state, action_mean, action_log_std, action_std)
-        elif self.stage == 'execution':
+        elif self.agent.env.stage == 'execution':
             control_action = actions[:, self.scale_state_dim:]
             return normal_log_density(control_action, action_mean, action_log_std, action_std)

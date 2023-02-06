@@ -23,7 +23,7 @@ from lib.core.utils import *
 
 
 class AgentPPO2(Agent):
-    def __init__(self, cfg, env, logger, dtype, device, num_threads, training=True, checkpoint=0):
+    def __init__(self, cfg, env, logger, dtype, device, num_threads, training=True, checkpoint=0, mean_action=True):
         self.cfg = cfg
         self.env = env
         self.logger = logger
@@ -34,6 +34,7 @@ class AgentPPO2(Agent):
         self.checkpoint = checkpoint
         self.total_steps = 0
         self.t_start = time.time()
+        self.mean_action = mean_action
 
         self.setup_networks()
         if training:
@@ -136,7 +137,7 @@ class AgentPPO2(Agent):
         self.logger.info('Policy update time: {:.2f} s'.format(t2 - t1))
 
         """ evaluate with determinstic action (remove noise for exploration) """
-        _, log_eval = self.sample(self.cfg.eval_batch_size, mean_action=True)
+        _, log_eval = self.sample(self.cfg.eval_batch_size, mean_action=self.mean_action)
 
         self.tb_logger.add_scalar('train_R_avg', log['avg_reward'], iter)
         self.tb_logger.add_scalar('eval_R_eps_avg', log_eval['avg_reward'], iter)
