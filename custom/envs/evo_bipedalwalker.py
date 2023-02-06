@@ -99,7 +99,6 @@ class EvoBipedalWalker(gym.Env):
     def __init__(self, augment_reward=True):
         self.cur_t = 0
         self.stage = 'scale_transform'
-        self.control_nsteps = 0
 
         self.scale_vector = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=float)
         self.seed()
@@ -136,7 +135,47 @@ class EvoBipedalWalker(gym.Env):
         self.action_space = spaces.Box(np.array([-1, -1, -1, -1]), np.array([+1, +1, +1, +1]))
         self.observation_space = spaces.Box(-high, high)
 
+        # dimension define
+        self.scale_state_dim = self.scale_vector.size
+
+        # execution stage action and observation dimension
+        self.control_action_dim = self.action_space.shape[0]
+        self.control_state_dim = self.observation_space.shape[0]
+
+        # entire state and action dimension (state includes agent morphological variables and simulation observation)
+        self.entire_action_dim = self.control_action_dim + self.scale_vector.size
+        self.entire_state_dim = self.control_state_dim + self.scale_vector.size
+
         self.timer = 0
+
+    def reset(self):
+        scale_vector = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=float)
+        execution_state, _ = self.execution_reset(scale_vector)
+        state = np.concatenate((scale_vector, execution_state))
+        self.stage = 'scale_transform'
+        return state, {}
+
+    def step(self, action):
+        if self.stage == 'scale_transform':
+            self.scale_vector = action[:self.scale_state_dim]
+            action = action[self.scale_state_dim:]
+            self.transit_execution()
+            control_state, info = self.execution_reset(self.scale_vector)
+            state = np.concatenate((self.scale_vector, control_state))
+            reward = 0.0
+            terminated = False
+            truncated = False
+            return state, reward, terminated, truncated, {}
+        elif self.stage == 'execution':
+            action = action[self.scale_state_dim:]
+            state, reward, terminated, truncated, info = self.execution_step(action)
+            state = np.concatenate((self.scale_vector, state))
+            return state, reward, terminated, truncated, {}
+        else:
+            pass
+
+    def transit_execution(self):
+        self.stage = 'execution'
 
     def augment_env(self, scale_vector):
         self.scale_vector = np.copy(np.array(scale_vector, dtype=float))
@@ -286,7 +325,8 @@ class EvoBipedalWalker(gym.Env):
             x2 = max([p[0] for p in poly])
             self.cloud_poly.append((poly, x1, x2))
 
-    def reset(self):
+    def execution_reset(self, scale_vector):
+        self.augment_env(scale_vector)
         self._destroy()
         self.world.contactListener_bug_workaround = ContactDetector(self)
         self.world.contactListener = self.world.contactListener_bug_workaround
@@ -440,34 +480,9 @@ class EvoBipedalWalker(gym.Env):
 
         self.lidar = [LidarCallback() for _ in range(10)]
 
-        return self.step(np.array([0, 0, 0, 0]))[0], {}
+        return self.execution_step(np.array([0, 0, 0, 0]))[0], {}
 
-    def step(self, action):
-        self.cur_t += 1
-
-        if self.stage == 'scale_transform':
-            scale_variable = action[:, :self.scale_vector.size]
-            action = action[:, self.scale_vector.size:]
-            self.transit_execution()
-            reward = 0.0
-            terminated = False
-            truncated = False
-            return state, reward, terminated, truncated, {}
-        else:
-            scale_variable = action[:, :self.scale_vector.size]
-            action = action[:, self.scale_vector.size:]
-            self.control_nsteps += 1
-            state, reward, terminated, truncated, info = self.execution(action)
-            state = np.concatenate((scale_variable, state), axis=1)
-            return state, reward, terminated, truncated, {}
-
-
-    def transit_execution(self):
-        self.stage = 'execution'
-        self.control_nsteps = 0
-
-
-    def execution(self, action):
+    def execution_step(self, action):
         control_speed = False  # Should be easier as well
         if control_speed:
             self.joints[0].motorSpeed = float(SPEED_HIP * np.clip(action[0], -1, 1))

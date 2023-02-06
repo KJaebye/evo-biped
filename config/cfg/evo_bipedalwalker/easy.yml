@@ -6,10 +6,14 @@ gamma: 0.995
 tau: 0.95
 
 policy_spec:
-  htype: tanh
-  mlp: [64, 64, 64]
-  log_std: 0
-  fix_control_std: False
+  scale_htype: tanh
+  scale_mlp: [64, 64, 64]
+  scale_log_std: 0
+  scale_fix_control_std: False
+  control_htype: tanh
+  control_mlp: [ 64, 64, 64 ]
+  control_log_std: 0
+  control_fix_control_std: False
 
 policy_optimizer: 'Adam'
 policy_lr: 5.e-5

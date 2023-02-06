@@ -288,6 +288,7 @@ class AugmentBipedalWalker(gym.Env):
             self.cloud_poly.append((poly, x1, x2))
 
     def reset(self):
+        self.augment_env(self.scale_vector)
         self._destroy()
         self.world.contactListener_bug_workaround = ContactDetector(self)
         self.world.contactListener = self.world.contactListener_bug_workaround
@@ -608,9 +609,9 @@ if __name__ == "__main__":
     # Heurisic: suboptimal, have no notion of balance.
     env = AugmentBipedalWalker()
     augment_vector = (1.0 + (np.random.rand(8) * 2 - 1.0) * 0.5)
+    # augment_vector = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=float)
     print("augment_vector", augment_vector)
-    env.augment_env(augment_vector)
-    env.reset()
+    env.reset(augment_vector)
     steps = 0
     total_reward = 0
     a = np.array([0.0, 0.0, 0.0, 0.0])
@@ -683,4 +684,4 @@ if __name__ == "__main__":
         a = np.clip(0.5 * a, -1.0, 1.0)
 
         env.render()
-        if terminated: break
+        if terminated or steps == 3000: break

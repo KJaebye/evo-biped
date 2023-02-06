@@ -15,7 +15,7 @@ import torch
 
 from lib.agents.agent import Agent
 from lib.core.policy import Policy
-from lib.core.value import Value
+from lib.core.critic import Value
 from lib.core.zfilter import ZFilter
 from lib.core.common import estimate_advantages
 from torch.utils.tensorboard import SummaryWriter
@@ -47,15 +47,13 @@ class AgentPPO2(Agent):
     def setup_networks(self):
         # print(self.env.observation_space)
         # print(self.env.action_space)
-        # print(self.env.observation_space.shape)
-        # print(self.env.action_space)
 
         self.running_state = ZFilter((self.env.observation_space.shape[0]), clip=5)
 
         """define actor and critic"""
         self.policy_net = Policy(self.env.observation_space.shape[0],
                                  self.env.action_space.shape[0],
-                                 hidden_size=self.cfg.policy_spec['mlp'],
+                                 hidden_sizes=self.cfg.policy_spec['mlp'],
                                  activation=self.cfg.policy_spec['htype'],
                                  log_std=self.cfg.policy_spec['log_std'])
         self.value_net = Value(self.env.observation_space.shape[0],
@@ -120,7 +118,6 @@ class AgentPPO2(Agent):
             self.save_best_flag = False
 
     def test(self):
-
         _, log_eval = self.sample(10000)
 
     def optimize(self, iter):

@@ -7,6 +7,7 @@
 import math
 import torch.nn as nn
 import torch
+from lib.core.running_norm import RunningNorm
 
 def normal_entropy(std):
     var = std.pow(2)
@@ -21,9 +22,10 @@ def normal_log_density(x, mean, log_std, std):
 
 
 class Policy(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_size=(128, 128), activation='tanh', log_std=0):
+    def __init__(self, state_dim, action_dim, hidden_sizes=(128, 128), activation='tanh', log_std=0):
         super().__init__()
         self.is_disc_action = False
+
         if activation == 'tanh':
             self.activation = torch.tanh
         elif activation == 'relu':
@@ -31,19 +33,20 @@ class Policy(nn.Module):
         elif activation == 'sigmoid':
             self.activation = torch.sigmoid
 
+        self.norm = RunningNorm(state_dim)
         self.affine_layers = nn.ModuleList()
         last_dim = state_dim
-        for nh in hidden_size:
+        for nh in hidden_sizes:
             self.affine_layers.append(nn.Linear(last_dim, nh))
             last_dim = nh
 
         self.action_mean = nn.Linear(last_dim, action_dim)
         self.action_mean.weight.data.mul_(0.1)
         self.action_mean.bias.data.mul_(0.0)
-
         self.action_log_std = nn.Parameter(torch.ones(1, action_dim) * log_std)
 
     def forward(self, x):
+        x = self.norm(x)
         for affine in self.affine_layers:
             x = self.activation(affine(x))
 
