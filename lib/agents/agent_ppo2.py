@@ -186,9 +186,14 @@ class AgentPPO2(Agent):
                     self.ppo_step(self.policy_net, self.value_net, self.optimizer_policy, self.optimizer_value,
                                   1, states_b, actions_b, returns_b, advantages_b, fixed_log_probs_b,
                                   self.cfg.clip_epsilon, self.cfg.l2_reg, iter)
-                policy_loss.append(policy_loss_i.detach().numpy())
-                value_loss.append(value_loss_i.detach().numpy())
-                entropy.append(entropy_i.detach().numpy())
+                if self.cfg.use_cuda:
+                    policy_loss.append(policy_loss_i.detach().cpu().numpy())
+                    value_loss.append(value_loss_i.detach().cpu().numpy())
+                    entropy.append(entropy_i.detach().cpu().numpy())
+                else:
+                    policy_loss.append(policy_loss_i.detach().numpy())
+                    value_loss.append(value_loss_i.detach().numpy())
+                    entropy.append(entropy_i.detach().numpy())
             self.logger.info('| %16.4f | %16.4f | %16.4f |' %
                              (np.mean(policy_loss), np.mean(value_loss), np.mean(entropy)))
 
