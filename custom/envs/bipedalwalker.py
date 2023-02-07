@@ -72,6 +72,12 @@ HULL_FD = fixtureDef(
     maskBits=0x001,  # collide only with ground
     restitution=0.0)  # 0.99 bouncy
 
+# package related
+LEG_W, LEG_H = 8 / SCALE, 34 / SCALE
+PACKAGE_POLY = [(-120, 5), (120, 5), (120, -5), (-120, -5)]
+PACKAGE_LENGTH = 240
+WALKER_SEPERATION = 10  # in steps
+
 
 class ContactDetector(contactListener):
     def __init__(self, env):
@@ -130,6 +136,19 @@ class AugmentBipedalWalker(gym.Env):
             friction=FRICTION,
             categoryBits=0x0001,
         )
+
+        # package related
+        self.n_walkers = 1
+        self.package_scale = self.n_walkers / 1.75
+        self.package_length = PACKAGE_LENGTH / SCALE * self.package_scale
+        self.total_agents = self.n_walkers
+        self.prev_shaping = np.zeros(self.n_walkers)
+        self.prev_package_shaping = 0.0
+        init_x = TERRAIN_STEP * TERRAIN_STARTPAD / 2
+        init_y = TERRAIN_HEIGHT + 2 * LEG_H
+        self.start_x = [
+            init_x + WALKER_SEPERATION * i * TERRAIN_STEP for i in range(self.n_walkers)
+        ]
 
         self.reset()
 
@@ -273,6 +292,24 @@ class AugmentBipedalWalker(gym.Env):
             self.terrain_poly.append((poly, color))
         self.terrain.reverse()
 
+    def _generate_package(self):
+        init_x = np.mean(self.start_x)
+        init_y = TERRAIN_HEIGHT + 3 * LEG_H
+        print(init_x, init_y)
+        self.package = self.world.CreateDynamicBody(
+            position=(init_x, init_y),
+            fixtures=fixtureDef(
+                shape=polygonShape(vertices=[(x * self.package_scale / SCALE, y / SCALE)
+                                             for x, y in PACKAGE_POLY]),
+                density=1.0,
+                friction=0.5,
+                categoryBits=0x004,
+                # maskBits=0x001,  # collide only with ground
+                restitution=0.0)  # 0.99 bouncy
+        )
+        self.package.color1 = (0.5, 0.4, 0.9)
+        self.package.color2 = (0.3, 0.3, 0.5)
+
     def _generate_clouds(self):
         # Sorry for the clouds, couldn't resist
         self.cloud_poly = []
@@ -302,6 +339,7 @@ class AugmentBipedalWalker(gym.Env):
         W = VIEWPORT_W / SCALE
         H = VIEWPORT_H / SCALE
 
+        self._generate_package()
         self._generate_terrain(self.hardcore)
         self._generate_clouds()
 
@@ -608,10 +646,11 @@ class AugmentBipedalWalkerTallLegs(AugmentBipedalWalker):
 if __name__ == "__main__":
     # Heurisic: suboptimal, have no notion of balance.
     env = AugmentBipedalWalker()
-    augment_vector = (1.0 + (np.random.rand(8) * 2 - 1.0) * 0.5)
-    # augment_vector = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=float)
+    # augment_vector = (1.0 + (np.random.rand(8) * 2 - 1.0) * 0.5)
+    augment_vector = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=float)
     print("augment_vector", augment_vector)
-    env.reset(augment_vector)
+    env.augment_env(augment_vector)
+    env.reset()
     steps = 0
     total_reward = 0
     a = np.array([0.0, 0.0, 0.0, 0.0])

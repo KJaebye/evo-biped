@@ -158,10 +158,10 @@ class EvoBipedalWalker(gym.Env):
     def step(self, action):
         self.cur_t += 1
         if self.stage == 'scale_transform':
-            self.scale_vector = action[:self.scale_state_dim]
-            action = action[self.scale_state_dim:]
+            # self.scale_vector = action[:self.scale_state_dim]
+            # action = action[self.scale_state_dim:]
             self.transit_execution()
-            control_state, info = self.execution_reset(self.scale_vector)
+            control_state, info = self.execution_reset()
             state = np.concatenate((self.scale_vector, control_state))
             reward = 0.0
             terminated = False
@@ -328,6 +328,7 @@ class EvoBipedalWalker(gym.Env):
 
     def execution_reset(self):
         scale_vector = (1.0 + (np.random.rand(8) * 2 - 1.0) * 0.5)
+        # scale_vector = np.clip(np.random.normal(1, 0.5, size=8), 0.25, 1.75)
         self.augment_env(scale_vector)
         self._destroy()
         self.world.contactListener_bug_workaround = ContactDetector(self)

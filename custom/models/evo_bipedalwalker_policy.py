@@ -59,10 +59,11 @@ class EvoBipedalWalkerPolicy(nn.Module):
             scale_vector = torch.tensor(np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=float))
             scale_vector = scale_vector.unsqueeze(0)
             x = self.scale_norm(scale_vector)
+            x = self.scale_norm(x)
             x = self.scale_mlp(x)
             scale_state_mean = self.scale_state_mean(x)
-            # limit the scale vector to [0.25, 1.75]
-            scale_state_mean = torch.ones([1, 8], dtype=torch.float) + scale_state_mean * 0.75
+            # limit the scale vector to [0.5, 1.5]
+            scale_state_mean = torch.ones([1, 8], dtype=torch.float) + scale_state_mean * 0.5
             scale_state_log_std = self.scale_state_log_std.expand_as(scale_state_mean).exp()
             scale_state_std = torch.exp(scale_state_log_std)
             return scale_state_mean, scale_state_log_std, scale_state_std
