@@ -158,8 +158,6 @@ class EvoBipedalWalker(gym.Env):
     def step(self, action):
         self.cur_t += 1
         if self.stage == 'scale_transform':
-            # self.scale_vector = action[:self.scale_state_dim]
-            # action = action[self.scale_state_dim:]
             self.transit_execution()
             control_state, info = self.execution_reset()
             state = np.concatenate((self.scale_vector, control_state))

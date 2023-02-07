@@ -16,6 +16,7 @@ def get_args():
     parser.add_argument('--task', type=str, help='task, must be specified to load the cfg file.', required=True)
     parser.add_argument('--algo', type=str, default='PPO2', help='algorithm to train the agent')
     parser.add_argument('--use_cuda', type=bool, default=False)
+    parser.add_argument('--gpu_index', type=int, default=0)
 
     # training configuration
     parser.add_argument('--rec', type=str, help='rec directory name')

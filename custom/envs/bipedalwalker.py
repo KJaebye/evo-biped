@@ -296,6 +296,7 @@ class AugmentBipedalWalker(gym.Env):
         init_x = np.mean(self.start_x)
         init_y = TERRAIN_HEIGHT + 3 * LEG_H
         print(init_x, init_y)
+        init_x
         self.package = self.world.CreateDynamicBody(
             position=(init_x, init_y),
             fixtures=fixtureDef(
@@ -390,6 +391,7 @@ class AugmentBipedalWalker(gym.Env):
 
         init_x = TERRAIN_STEP * TERRAIN_STARTPAD / 2
         init_y = TERRAIN_HEIGHT + np.maximum(leg1_h_top + leg1_h_bot, leg2_h_top + leg2_h_bot)
+        print('hull:', init_x, init_y)
         self.hull = self.world.CreateDynamicBody(
             position=(init_x, init_y),
             fixtures=HULL_FD
