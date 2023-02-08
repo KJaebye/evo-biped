@@ -1,19 +1,7 @@
-import sys, math
-import numpy as np
-
-import Box2D
-from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener)
-
-import gym
-from gym import spaces
-from gym.utils import colorize, seeding
-
-# This is simple 4-joints walker robot environment.
+# This is the basic simple 4-joints walker robot environment.
 #
 # There are two versions:
-#
 # - Normal, with slightly uneven terrain.
-#
 # - Hardcore with ladders, stumps, pitfalls.
 #
 # Reward is given for moving forward, total 300+ points up to the far end. If the robot falls,
@@ -31,10 +19,18 @@ from gym.utils import colorize, seeding
 # in the state vector. Lidar is less useful in normal version, but it works.
 #
 # To solve the game you need to get 300 points in 1600 time steps.
-#
 # To solve hardcore version you need 300 points in 2000 time steps.
 #
 # Created by Oleg Klimov. Licensed on the same terms as the rest of OpenAI Gym.
+
+
+import sys, math
+import numpy as np
+import Box2D
+from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener)
+import gym
+from gym import spaces
+from gym.utils import colorize, seeding
 
 FPS = 50
 SCALE = 30.0  # affects how fast-paced the game is, forces should be adjusted as well
@@ -46,10 +42,8 @@ LIDAR_RANGE = 160 / SCALE
 
 INITIAL_RANDOM = 5
 
-HULL_POLY = [
-    (-30, +9), (+6, +9), (+34, +1),
-    (+34, -8), (-30, -8)
-]
+HULL_POLY = [(-30, +9), (+6, +9), (+34, +1),
+             (+34, -8), (-30, -8)]
 
 VIEWPORT_W = 600
 VIEWPORT_H = 400
@@ -64,19 +58,12 @@ FRICTION = 2.5
 BIPED_LIMIT = 1600
 BIPED_HARDCORE_LIMIT = 2000
 
-HULL_FD = fixtureDef(
-    shape=polygonShape(vertices=[(x / SCALE, y / SCALE) for x, y in HULL_POLY]),
-    density=5.0,
-    friction=0.1,
-    categoryBits=0x0020,
-    maskBits=0x001,  # collide only with ground
-    restitution=0.0)  # 0.99 bouncy
-
-# package related
-LEG_W, LEG_H = 8 / SCALE, 34 / SCALE
-PACKAGE_POLY = [(-120, 5), (120, 5), (120, -5), (-120, -5)]
-PACKAGE_LENGTH = 240
-WALKER_SEPERATION = 10  # in steps
+HULL_FD = fixtureDef(shape=polygonShape(vertices=[(x / SCALE, y / SCALE) for x, y in HULL_POLY]),
+                     density=5.0,
+                     friction=0.1,
+                     categoryBits=0x0020,
+                     maskBits=0x001,  # collide only with ground
+                     restitution=0.0)  # 0.99 bouncy
 
 
 class ContactDetector(contactListener):
@@ -98,10 +85,10 @@ class ContactDetector(contactListener):
 
 
 class AugmentBipedalWalker(gym.Env):
-    metadata = {
-        'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': FPS
-    }
+    """
+    AugmentBipedalWalker is the basic bipedalwalker agent that has an api of changing morphology.
+    """
+    metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second': FPS}
 
     hardcore = False
     smalllegs = False
@@ -119,36 +106,9 @@ class AugmentBipedalWalker(gym.Env):
 
         self.augment_reward = augment_reward
 
-        self.prev_shaping = None
-
-        self.fd_polygon = fixtureDef(
-            shape=polygonShape(vertices=
-                               [(0, 0),
-                                (1, 0),
-                                (1, -1),
-                                (0, -1)]),
-            friction=FRICTION)
-
-        self.fd_edge = fixtureDef(
-            shape=edgeShape(vertices=
-                            [(0, 0),
-                             (1, 1)]),
-            friction=FRICTION,
-            categoryBits=0x0001,
-        )
-
-        # package related
-        self.n_walkers = 1
-        self.package_scale = self.n_walkers / 1.75
-        self.package_length = PACKAGE_LENGTH / SCALE * self.package_scale
-        self.total_agents = self.n_walkers
-        self.prev_shaping = np.zeros(self.n_walkers)
-        self.prev_package_shaping = 0.0
-        init_x = TERRAIN_STEP * TERRAIN_STARTPAD / 2
-        init_y = TERRAIN_HEIGHT + 2 * LEG_H
-        self.start_x = [
-            init_x + WALKER_SEPERATION * i * TERRAIN_STEP for i in range(self.n_walkers)
-        ]
+        self.fd_polygon = fixtureDef(shape=polygonShape(vertices=[(0, 0), (1, 0), (1, -1), (0, -1)]),
+                                     friction=FRICTION)
+        self.fd_edge = fixtureDef(shape=edgeShape(vertices=[(0, 0), (1, 1)]), friction=FRICTION, categoryBits=0x0001)
 
         self.reset()
 
@@ -166,13 +126,17 @@ class AugmentBipedalWalker(gym.Env):
         return [seed]
 
     def _destroy(self):
-        if not self.terrain: return
+        if not self.terrain:
+            return
         self.world.contactListener = None
+
         for t in self.terrain:
             self.world.DestroyBody(t)
         self.terrain = []
+
         self.world.DestroyBody(self.hull)
         self.hull = None
+
         for leg in self.legs:
             self.world.DestroyBody(leg)
         self.legs = []
@@ -194,26 +158,21 @@ class AugmentBipedalWalker(gym.Env):
 
             if state == GRASS and not oneshot:
                 velocity = 0.8 * velocity + 0.01 * np.sign(TERRAIN_HEIGHT - y)
-                if i > TERRAIN_STARTPAD: velocity += self.np_random.uniform(-1, 1) / SCALE  # 1
+                if i > TERRAIN_STARTPAD:
+                    velocity += self.np_random.uniform(-1, 1) / SCALE  # 1
                 y += velocity
 
             elif state == PIT and oneshot:
                 counter = self.np_random.randint(3, 5)
-                poly = [
-                    (x, y),
-                    (x + TERRAIN_STEP, y),
-                    (x + TERRAIN_STEP, y - 4 * TERRAIN_STEP),
-                    (x, y - 4 * TERRAIN_STEP),
-                ]
+                poly = [(x, y), (x + TERRAIN_STEP, y), (x + TERRAIN_STEP, y - 4 * TERRAIN_STEP),
+                        (x, y - 4 * TERRAIN_STEP)]
                 self.fd_polygon.shape.vertices = poly
-                t = self.world.CreateStaticBody(
-                    fixtures=self.fd_polygon)
+                t = self.world.CreateStaticBody(fixtures=self.fd_polygon)
                 t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
                 self.terrain.append(t)
 
                 self.fd_polygon.shape.vertices = [(p[0] + TERRAIN_STEP * counter, p[1]) for p in poly]
-                t = self.world.CreateStaticBody(
-                    fixtures=self.fd_polygon)
+                t = self.world.CreateStaticBody(fixtures=self.fd_polygon)
                 t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
                 self.terrain.append(t)
                 counter += 2
@@ -226,15 +185,10 @@ class AugmentBipedalWalker(gym.Env):
 
             elif state == STUMP and oneshot:
                 counter = self.np_random.randint(1, 3)
-                poly = [
-                    (x, y),
-                    (x + counter * TERRAIN_STEP, y),
-                    (x + counter * TERRAIN_STEP, y + counter * TERRAIN_STEP),
-                    (x, y + counter * TERRAIN_STEP),
-                ]
+                poly = [(x, y), (x + counter * TERRAIN_STEP, y),
+                        (x + counter * TERRAIN_STEP, y + counter * TERRAIN_STEP), (x, y + counter * TERRAIN_STEP), ]
                 self.fd_polygon.shape.vertices = poly
-                t = self.world.CreateStaticBody(
-                    fixtures=self.fd_polygon)
+                t = self.world.CreateStaticBody(fixtures=self.fd_polygon)
                 t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
                 self.terrain.append(t)
 
@@ -244,15 +198,12 @@ class AugmentBipedalWalker(gym.Env):
                 stair_steps = self.np_random.randint(3, 5)
                 original_y = y
                 for s in range(stair_steps):
-                    poly = [
-                        (x + (s * stair_width) * TERRAIN_STEP, y + (s * stair_height) * TERRAIN_STEP),
-                        (x + ((1 + s) * stair_width) * TERRAIN_STEP, y + (s * stair_height) * TERRAIN_STEP),
-                        (x + ((1 + s) * stair_width) * TERRAIN_STEP, y + (-1 + s * stair_height) * TERRAIN_STEP),
-                        (x + (s * stair_width) * TERRAIN_STEP, y + (-1 + s * stair_height) * TERRAIN_STEP),
-                    ]
+                    poly = [(x + (s * stair_width) * TERRAIN_STEP, y + (s * stair_height) * TERRAIN_STEP),
+                            (x + ((1 + s) * stair_width) * TERRAIN_STEP, y + (s * stair_height) * TERRAIN_STEP),
+                            (x + ((1 + s) * stair_width) * TERRAIN_STEP, y + (-1 + s * stair_height) * TERRAIN_STEP),
+                            (x + (s * stair_width) * TERRAIN_STEP, y + (-1 + s * stair_height) * TERRAIN_STEP)]
                     self.fd_polygon.shape.vertices = poly
-                    t = self.world.CreateStaticBody(
-                        fixtures=self.fd_polygon)
+                    t = self.world.CreateStaticBody(fixtures=self.fd_polygon)
                     t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
                     self.terrain.append(t)
                 counter = stair_steps * stair_width
@@ -276,13 +227,10 @@ class AugmentBipedalWalker(gym.Env):
 
         self.terrain_poly = []
         for i in range(TERRAIN_LENGTH - 1):
-            poly = [
-                (self.terrain_x[i], self.terrain_y[i]),
-                (self.terrain_x[i + 1], self.terrain_y[i + 1])
-            ]
+            poly = [(self.terrain_x[i], self.terrain_y[i]),
+                    (self.terrain_x[i + 1], self.terrain_y[i + 1])]
             self.fd_edge.shape.vertices = poly
-            t = self.world.CreateStaticBody(
-                fixtures=self.fd_edge)
+            t = self.world.CreateStaticBody(fixtures=self.fd_edge)
             color = (0.3, 1.0 if i % 2 == 0 else 0.8, 0.3)
             t.color1 = color
             t.color2 = color
@@ -292,36 +240,15 @@ class AugmentBipedalWalker(gym.Env):
             self.terrain_poly.append((poly, color))
         self.terrain.reverse()
 
-    def _generate_package(self):
-        init_x = np.mean(self.start_x)
-        init_y = TERRAIN_HEIGHT + 3 * LEG_H
-
-        self.package = self.world.CreateDynamicBody(
-            position=(init_x, init_y),
-            fixtures=fixtureDef(
-                shape=polygonShape(vertices=[(x * self.package_scale / SCALE, y / SCALE)
-                                             for x, y in PACKAGE_POLY]),
-                density=1.0,
-                friction=0.5,
-                categoryBits=0x004,
-                # maskBits=0x001,  # collide only with ground
-                restitution=0.0)  # 0.99 bouncy
-        )
-        self.package.color1 = (0.5, 0.4, 0.9)
-        self.package.color2 = (0.3, 0.3, 0.5)
-
-
-
     def _generate_clouds(self):
         # Sorry for the clouds, couldn't resist
         self.cloud_poly = []
         for i in range(TERRAIN_LENGTH // 20):
             x = self.np_random.uniform(0, TERRAIN_LENGTH) * TERRAIN_STEP
             y = VIEWPORT_H / SCALE * 3 / 4
-            poly = [
-                (x + 15 * TERRAIN_STEP * math.sin(3.14 * 2 * a / 5) + self.np_random.uniform(0, 5 * TERRAIN_STEP),
-                 y + 5 * TERRAIN_STEP * math.cos(3.14 * 2 * a / 5) + self.np_random.uniform(0, 5 * TERRAIN_STEP))
-                for a in range(5)]
+            poly = [(x + 15 * TERRAIN_STEP * math.sin(3.14 * 2 * a / 5) + self.np_random.uniform(0, 5 * TERRAIN_STEP),
+                     y + 5 * TERRAIN_STEP * math.cos(3.14 * 2 * a / 5) + self.np_random.uniform(0, 5 * TERRAIN_STEP))
+                    for a in range(5)]
             x1 = min([p[0] for p in poly])
             x2 = max([p[0] for p in poly])
             self.cloud_poly.append((poly, x1, x2))
@@ -341,20 +268,12 @@ class AugmentBipedalWalker(gym.Env):
         W = VIEWPORT_W / SCALE
         H = VIEWPORT_H / SCALE
 
-        self._generate_package()
         self._generate_terrain(self.hardcore)
         self._generate_clouds()
-
-        # orig parameters
-        # LEG_DOWN = -8/SCALE
-        # LEG_W, LEG_H = 8/SCALE, 34/SCALE
 
         # new parameters
         U = 1.0 / SCALE
         LEG_DOWN = -8 * U
-
-        # LEG_W = 1.0*8/SCALE
-        # LEG_H = 1.0*34/SCALE # maybe make one for each leg?
 
         def calculate_total_area(x):
             return x[0] * x[1] + x[2] * x[3] + x[4] * x[5] + x[6] * x[7]
@@ -393,10 +312,7 @@ class AugmentBipedalWalker(gym.Env):
         init_x = TERRAIN_STEP * TERRAIN_STARTPAD / 2
         init_y = TERRAIN_HEIGHT + np.maximum(leg1_h_top + leg1_h_bot, leg2_h_top + leg2_h_bot)
 
-        self.hull = self.world.CreateDynamicBody(
-            position=(init_x, init_y),
-            fixtures=HULL_FD
-        )
+        self.hull = self.world.CreateDynamicBody(position=(init_x, init_y), fixtures=HULL_FD)
         self.hull.color1 = (0.5, 0.4, 0.9)
         self.hull.color2 = (0.3, 0.3, 0.5)
         self.hull.ApplyForceToCenter((self.np_random.uniform(-INITIAL_RANDOM, INITIAL_RANDOM), 0), True)
@@ -416,57 +332,47 @@ class AugmentBipedalWalker(gym.Env):
                 leg_h_top = leg2_h_top
                 leg_h_bot = leg2_h_bot
 
-            leg = self.world.CreateDynamicBody(
-                position=(init_x, init_y - leg_h_top / 2 - LEG_DOWN),
-                angle=(i * 0.05),
-                fixtures=fixtureDef(
-                    shape=polygonShape(box=(leg_w_top / 2, leg_h_top / 2)),
-                    density=1.0,
-                    restitution=0.0,
-                    categoryBits=0x0020,
-                    maskBits=0x001)
-            )
+            leg = self.world.CreateDynamicBody(position=(init_x, init_y - leg_h_top / 2 - LEG_DOWN), angle=(i * 0.05),
+                                               fixtures=fixtureDef(
+                                                   shape=polygonShape(box=(leg_w_top / 2, leg_h_top / 2)), density=1.0,
+                                                   restitution=0.0,
+                                                   categoryBits=0x0020,
+                                                   maskBits=0x001))
             leg.color1 = (0.6 - i / 10., 0.3 - i / 10., 0.5 - i / 10.)
             leg.color2 = (0.4 - i / 10., 0.2 - i / 10., 0.3 - i / 10.)
-            rjd = revoluteJointDef(
-                bodyA=self.hull,
-                bodyB=leg,
-                localAnchorA=(0, LEG_DOWN),
-                localAnchorB=(0, leg_h_top / 2),
-                enableMotor=True,
-                enableLimit=True,
-                maxMotorTorque=MOTORS_TORQUE,
-                motorSpeed=i,
-                lowerAngle=-0.8,
-                upperAngle=1.1,
-            )
+            rjd = revoluteJointDef(bodyA=self.hull,
+                                   bodyB=leg,
+                                   localAnchorA=(0, LEG_DOWN),
+                                   localAnchorB=(0, leg_h_top / 2),
+                                   enableMotor=True,
+                                   enableLimit=True,
+                                   maxMotorTorque=MOTORS_TORQUE,
+                                   motorSpeed=i,
+                                   lowerAngle=-0.8,
+                                   upperAngle=1.1)
             self.legs.append(leg)
             self.joints.append(self.world.CreateJoint(rjd))
 
-            lower = self.world.CreateDynamicBody(
-                position=(init_x, init_y - leg_h_top - leg_h_bot / 2 - LEG_DOWN),
-                angle=(i * 0.05),
-                fixtures=fixtureDef(
-                    shape=polygonShape(box=(leg_w_bot / 2, leg_h_bot / 2)),
-                    density=1.0,
-                    restitution=0.0,
-                    categoryBits=0x0020,
-                    maskBits=0x001)
-            )
+            lower = self.world.CreateDynamicBody(position=(init_x, init_y - leg_h_top - leg_h_bot / 2 - LEG_DOWN),
+                                                 angle=(i * 0.05),
+                                                 fixtures=fixtureDef(
+                                                     shape=polygonShape(box=(leg_w_bot / 2, leg_h_bot / 2)),
+                                                     density=1.0,
+                                                     restitution=0.0,
+                                                     categoryBits=0x0020,
+                                                     maskBits=0x001))
             lower.color1 = (0.6 - i / 10., 0.3 - i / 10., 0.5 - i / 10.)
             lower.color2 = (0.4 - i / 10., 0.2 - i / 10., 0.3 - i / 10.)
-            rjd = revoluteJointDef(
-                bodyA=leg,
-                bodyB=lower,
-                localAnchorA=(0, -leg_h_top / 2),
-                localAnchorB=(0, leg_h_bot / 2),
-                enableMotor=True,
-                enableLimit=True,
-                maxMotorTorque=MOTORS_TORQUE,
-                motorSpeed=1,
-                lowerAngle=-1.6,
-                upperAngle=-0.1,
-            )
+            rjd = revoluteJointDef(bodyA=leg,
+                                   bodyB=lower,
+                                   localAnchorA=(0, -leg_h_top / 2),
+                                   localAnchorB=(0, leg_h_bot / 2),
+                                   enableMotor=True,
+                                   enableLimit=True,
+                                   maxMotorTorque=MOTORS_TORQUE,
+                                   motorSpeed=1,
+                                   lowerAngle=-1.6,
+                                   upperAngle=-0.1)
             lower.ground_contact = False
             self.legs.append(lower)
             self.joints.append(self.world.CreateJoint(rjd))
@@ -475,8 +381,7 @@ class AugmentBipedalWalker(gym.Env):
 
         class LidarCallback(Box2D.b2.rayCastCallback):
             def ReportFixture(self, fixture, point, normal, fraction):
-                if (fixture.filterData.categoryBits & 1) == 0:
-                    return 1
+                if (fixture.filterData.categoryBits & 1) == 0: return 1
                 self.p2 = point
                 self.fraction = fraction
                 return 0
@@ -511,28 +416,25 @@ class AugmentBipedalWalker(gym.Env):
         for i in range(10):
             self.lidar[i].fraction = 1.0
             self.lidar[i].p1 = pos
-            self.lidar[i].p2 = (
-                pos[0] + math.sin(1.5 * i / 10.0) * LIDAR_RANGE,
-                pos[1] - math.cos(1.5 * i / 10.0) * LIDAR_RANGE)
+            self.lidar[i].p2 = (pos[0] + math.sin(1.5 * i / 10.0) * LIDAR_RANGE,
+                                pos[1] - math.cos(1.5 * i / 10.0) * LIDAR_RANGE)
             self.world.RayCast(self.lidar[i], self.lidar[i].p1, self.lidar[i].p2)
 
-        state = [
-            self.hull.angle,  # Normal angles up to 0.5 here, but sure more is possible.
-            2.0 * self.hull.angularVelocity / FPS,
-            0.3 * vel.x * (VIEWPORT_W / SCALE) / FPS,  # Normalized to get -1..1 range
-            0.3 * vel.y * (VIEWPORT_H / SCALE) / FPS,
-            self.joints[0].angle,
-            # This will give 1.1 on high up, but it's still OK (and there should be spikes on hiting the ground, that's normal too)
-            self.joints[0].speed / SPEED_HIP,
-            self.joints[1].angle + 1.0,
-            self.joints[1].speed / SPEED_KNEE,
-            1.0 if self.legs[1].ground_contact else 0.0,
-            self.joints[2].angle,
-            self.joints[2].speed / SPEED_HIP,
-            self.joints[3].angle + 1.0,
-            self.joints[3].speed / SPEED_KNEE,
-            1.0 if self.legs[3].ground_contact else 0.0
-        ]
+        state = [self.hull.angle,  # Normal angles up to 0.5 here, but sure more is possible.
+                 2.0 * self.hull.angularVelocity / FPS,
+                 0.3 * vel.x * (VIEWPORT_W / SCALE) / FPS,  # Normalized to get -1..1 range
+                 0.3 * vel.y * (VIEWPORT_H / SCALE) / FPS,
+                 self.joints[0].angle,
+                 # This will give 1.1 on high up, but it's still OK (and there should be spikes on hiting the ground, that's normal too)
+                 self.joints[0].speed / SPEED_HIP,
+                 self.joints[1].angle + 1.0,
+                 self.joints[1].speed / SPEED_KNEE,
+                 1.0 if self.legs[1].ground_contact else 0.0,
+                 self.joints[2].angle,
+                 self.joints[2].speed / SPEED_HIP,
+                 self.joints[3].angle + 1.0,
+                 self.joints[3].speed / SPEED_KNEE,
+                 1.0 if self.legs[3].ground_contact else 0.0]
         state += [l.fraction for l in self.lidar]
         assert len(state) == 24
 
@@ -570,7 +472,6 @@ class AugmentBipedalWalker(gym.Env):
                 truncated = True
 
         self.timer += 1
-
         return np.array(state), reward, terminated, truncated, {}
 
     def render(self, mode='rgb_array', close=False):
@@ -583,18 +484,21 @@ class AugmentBipedalWalker(gym.Env):
         from gym.envs.classic_control import rendering
         if self.viewer is None:
             self.viewer = rendering.Viewer(VIEWPORT_W, VIEWPORT_H)
-        self.viewer.set_bounds(self.scroll, VIEWPORT_W / SCALE + self.scroll, 0, VIEWPORT_H / SCALE)
 
-        self.viewer.draw_polygon([
-            (self.scroll, 0),
-            (self.scroll + VIEWPORT_W / SCALE, 0),
-            (self.scroll + VIEWPORT_W / SCALE, VIEWPORT_H / SCALE),
-            (self.scroll, VIEWPORT_H / SCALE),
-        ], color=(0.9, 0.9, 1.0))
+        self.viewer.set_bounds(self.scroll,
+                               VIEWPORT_W / SCALE + self.scroll,
+                               0, VIEWPORT_H / SCALE)
+
+        self.viewer.draw_polygon([(self.scroll, 0),
+                                  (self.scroll + VIEWPORT_W / SCALE, 0),
+                                  (self.scroll + VIEWPORT_W / SCALE, VIEWPORT_H / SCALE),
+                                  (self.scroll, VIEWPORT_H / SCALE)], color=(0.9, 0.9, 1.0))
+
         for poly, x1, x2 in self.cloud_poly:
             if x2 < self.scroll / 2: continue
             if x1 > self.scroll / 2 + VIEWPORT_W / SCALE: continue
             self.viewer.draw_polygon([(p[0] + self.scroll / 2, p[1]) for p in poly], color=(1, 1, 1))
+
         for poly, color in self.terrain_poly:
             if poly[1][0] < self.scroll: continue
             if poly[0][0] > self.scroll + VIEWPORT_W / SCALE: continue

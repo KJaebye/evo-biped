@@ -2,16 +2,16 @@ env_name: bipedalwalker_easy
 agent_spec:
   batch_design: False
 # training parameters
-gamma: 0.995
+gamma: 0.99
 tau: 0.95
 
 policy_spec:
   scale_htype: tanh
-  scale_mlp: [64, 64, 64]
+  scale_mlp: [64, 64]
   scale_log_std: 0
   scale_fix_control_std: False
   control_htype: tanh
-  control_mlp: [64, 64, 64]
+  control_mlp: [64, 128, 64]
   control_log_std: 0
   control_fix_control_std: False
 
@@ -36,7 +36,7 @@ batch_size: 2048
 eval_batch_size: 2048
 mini_batch_size: 64
 optim_num_epoch: 10
-max_iter_num: 3000
+max_iter_num: 10000
 seed: 1
-save_model_interval: 500
+save_model_interval: 50
 

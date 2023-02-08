@@ -1,0 +1,23 @@
+[32m[20230209 04:50:48 @logger.py:106][0m Log file set to ./tmp/evo_bipedalwalker/easy/20230209_045048/log/evo_bipedalwalker_easy-20230209_045048.log
+[32m[20230209 04:50:48 @agent_ppo2.py:128][0m #------------------------ Iteration 0 --------------------------#
+[32m[20230209 04:50:49 @agent_ppo2.py:134][0m Sampling time: 0.98 s by 1 slaves
+[32m[20230209 04:50:49 @agent_ppo2.py:168][0m |      policy_loss |       value_loss |          entropy |
+[32m[20230209 04:50:49 @agent_ppo2.py:193][0m |          -0.0002 |         260.5690 |           0.0652 |
+[32m[20230209 04:50:49 @agent_ppo2.py:193][0m |          -0.0023 |         253.5594 |           0.0652 |
+[32m[20230209 04:50:49 @agent_ppo2.py:193][0m |          -0.0041 |         240.1838 |           0.0652 |
+[32m[20230209 04:50:49 @agent_ppo2.py:193][0m |          -0.0055 |         227.2507 |           0.0652 |
+[32m[20230209 04:50:49 @agent_ppo2.py:193][0m |          -0.0073 |         218.1086 |           0.0651 |
+[32m[20230209 04:50:49 @agent_ppo2.py:193][0m |          -0.0085 |         211.4274 |           0.0651 |
+[32m[20230209 04:50:49 @agent_ppo2.py:193][0m |          -0.0094 |         205.1211 |           0.0651 |
+[32m[20230209 04:50:49 @agent_ppo2.py:193][0m |          -0.0101 |         199.1033 |           0.0651 |
+[32m[20230209 04:50:49 @agent_ppo2.py:193][0m |          -0.0111 |         193.2436 |           0.0650 |
+[32m[20230209 04:50:49 @agent_ppo2.py:193][0m |          -0.0118 |         187.5446 |           0.0650 |
+[32m[20230209 04:50:49 @agent_ppo2.py:137][0m Policy update time: 0.79 s
+[32m[20230209 04:50:50 @agent_ppo2.py:145][0m Average TRAINING episode reward: -120.78
+[32m[20230209 04:50:50 @agent_ppo2.py:146][0m Maximum TRAINING episode reward: -101.79
+[32m[20230209 04:50:50 @agent_ppo2.py:147][0m Average EVALUATION episode reward: -107.49
+[32m[20230209 04:50:50 @evo_bipedalwalker_agent.py:112][0m [4m[34mCRITICAL[0m Get the best episode reward: -107.49
+[32m[20230209 04:50:50 @evo_bipedalwalker_agent.py:116][0m [4m[34mCRITICAL[0m Saving the best checkpoint with rewards -107.49
+[32m[20230209 04:50:50 @agent_ppo2.py:150][0m Total time:       0.04 min
+[32m[20230209 04:50:50 @agent_ppo2.py:152][0m 2048 total steps have happened
+[32m[20230209 04:50:50 @agent_ppo2.py:128][0m #------------------------ Iteration 1 --------------------------#

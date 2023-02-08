@@ -87,10 +87,7 @@ class ContactDetector(contactListener):
 
 
 class EvoBipedalWalker(gym.Env):
-    metadata = {
-        'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': FPS
-    }
+    metadata = {'render.modes': ['human', 'rgb_array'], 'video.frames_per_second': FPS}
 
     hardcore = False
     smalllegs = False
@@ -113,58 +110,58 @@ class EvoBipedalWalker(gym.Env):
 
         self.prev_shaping = None
 
-        self.fd_polygon = fixtureDef(
-            shape=polygonShape(vertices=
-                               [(0, 0),
-                                (1, 0),
-                                (1, -1),
-                                (0, -1)]),
-            friction=FRICTION)
+        self.fd_polygon = fixtureDef(shape=polygonShape(vertices=[(0, 0), (1, 0), (1, -1), (0, -1)]),
+                                     friction=FRICTION)
 
-        self.fd_edge = fixtureDef(
-            shape=edgeShape(vertices=
-                            [(0, 0),
-                             (1, 1)]),
-            friction=FRICTION,
-            categoryBits=0x0001,
-        )
+        self.fd_edge = fixtureDef(shape=edgeShape(vertices=[(0, 0), (1, 1)]),
+                                  friction=FRICTION,
+                                  categoryBits=0x0001)
 
-        self.reset()
-
-        high = np.array([np.inf] * 24)
-        self.action_space = spaces.Box(np.array([-1, -1, -1, -1]), np.array([+1, +1, +1, +1]))
+        high = np.array([np.inf] * 32)
+        # self.action_space = spaces.Box(np.array([-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
+        #                                np.array([+1, +1, +1, +1, +1, +1, +1, +1, +1, +1, +1, +1]))
+        self.action_space = spaces.Box(np.array([0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, -1, -1, -1, -1]),
+                                       np.array([1.75, 1.75, 1.75, 1.75, 1.75, 1.75, 1.75, 1.75, +1, +1, +1, +1]))
         self.observation_space = spaces.Box(-high, high)
 
         # dimension define
         self.scale_state_dim = self.scale_vector.size
 
-        # execution stage action and observation dimension
-        self.control_action_dim = self.action_space.shape[0]
-        self.control_state_dim = self.observation_space.shape[0]
-
         # entire state and action dimension (state includes agent morphological variables and simulation observation)
-        self.entire_action_dim = self.control_action_dim + self.scale_vector.size
-        self.entire_state_dim = self.control_state_dim + self.scale_vector.size
+        self.entire_action_dim = self.action_space.shape[0]
+        self.entire_state_dim = self.observation_space.shape[0]
+
+        # execution stage action and observation dimension
+        self.control_action_dim = self.entire_action_dim - self.scale_vector.size
+        self.control_state_dim = self.entire_state_dim - self.scale_vector.size
+
+        self.reset()
 
         self.timer = 0
 
     def reset(self):
-        execution_state, _ = self.execution_reset()
-        state = np.concatenate((self.scale_vector, execution_state))
+        original_scale_vector = np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=float)
+        original_execution_state, _ = self.execution_reset(original_scale_vector)
+        original_state = np.concatenate((original_scale_vector, original_execution_state))
         self.stage = 'scale_transform'
         self.cur_t = 0
-        return state, {}
+        return original_state, {}
 
     def step(self, action):
         self.cur_t += 1
+
         if self.stage == 'scale_transform':
             self.transit_execution()
-            control_state, info = self.execution_reset()
-            state = np.concatenate((self.scale_vector, control_state))
+            scale_vector = action[:self.scale_state_dim]
+            control_state, info = self.execution_reset(scale_vector)
+
+            assert scale_vector.all() == self.scale_vector.all()
+            state = np.concatenate((scale_vector, control_state))
             reward = 0.0
             terminated = False
             truncated = False
             return state, reward, terminated, truncated, {}
+
         elif self.stage == 'execution':
             action = action[self.scale_state_dim:]
             state, reward, terminated, truncated, info = self.execution_step(action)
@@ -173,160 +170,7 @@ class EvoBipedalWalker(gym.Env):
         else:
             pass
 
-    def transit_execution(self):
-        self.stage = 'execution'
-
-    def augment_env(self, scale_vector):
-        self.scale_vector = np.copy(np.array(scale_vector, dtype=float))
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def _destroy(self):
-        if not self.terrain: return
-        self.world.contactListener = None
-        for t in self.terrain:
-            self.world.DestroyBody(t)
-        self.terrain = []
-        self.world.DestroyBody(self.hull)
-        self.hull = None
-        for leg in self.legs:
-            self.world.DestroyBody(leg)
-        self.legs = []
-        self.joints = []
-
-    def _generate_terrain(self, hardcore):
-        GRASS, STUMP, STAIRS, PIT, _STATES_ = range(5)
-        state = GRASS
-        velocity = 0.0
-        y = TERRAIN_HEIGHT
-        counter = TERRAIN_STARTPAD
-        oneshot = False
-        self.terrain = []
-        self.terrain_x = []
-        self.terrain_y = []
-        for i in range(TERRAIN_LENGTH):
-            x = i * TERRAIN_STEP
-            self.terrain_x.append(x)
-
-            if state == GRASS and not oneshot:
-                velocity = 0.8 * velocity + 0.01 * np.sign(TERRAIN_HEIGHT - y)
-                if i > TERRAIN_STARTPAD: velocity += self.np_random.uniform(-1, 1) / SCALE  # 1
-                y += velocity
-
-            elif state == PIT and oneshot:
-                counter = self.np_random.integers(3, 5)
-                poly = [
-                    (x, y),
-                    (x + TERRAIN_STEP, y),
-                    (x + TERRAIN_STEP, y - 4 * TERRAIN_STEP),
-                    (x, y - 4 * TERRAIN_STEP),
-                ]
-                self.fd_polygon.shape.vertices = poly
-                t = self.world.CreateStaticBody(
-                    fixtures=self.fd_polygon)
-                t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
-                self.terrain.append(t)
-
-                self.fd_polygon.shape.vertices = [(p[0] + TERRAIN_STEP * counter, p[1]) for p in poly]
-                t = self.world.CreateStaticBody(
-                    fixtures=self.fd_polygon)
-                t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
-                self.terrain.append(t)
-                counter += 2
-                original_y = y
-
-            elif state == PIT and not oneshot:
-                y = original_y
-                if counter > 1:
-                    y -= 4 * TERRAIN_STEP
-
-            elif state == STUMP and oneshot:
-                counter = self.np_random.integers(1, 3)
-                poly = [
-                    (x, y),
-                    (x + counter * TERRAIN_STEP, y),
-                    (x + counter * TERRAIN_STEP, y + counter * TERRAIN_STEP),
-                    (x, y + counter * TERRAIN_STEP),
-                ]
-                self.fd_polygon.shape.vertices = poly
-                t = self.world.CreateStaticBody(
-                    fixtures=self.fd_polygon)
-                t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
-                self.terrain.append(t)
-
-            elif state == STAIRS and oneshot:
-                stair_height = +1 if self.np_random.rand() > 0.5 else -1
-                stair_width = self.np_random.integers(4, 5)
-                stair_steps = self.np_random.integers(3, 5)
-                original_y = y
-                for s in range(stair_steps):
-                    poly = [
-                        (x + (s * stair_width) * TERRAIN_STEP, y + (s * stair_height) * TERRAIN_STEP),
-                        (x + ((1 + s) * stair_width) * TERRAIN_STEP, y + (s * stair_height) * TERRAIN_STEP),
-                        (x + ((1 + s) * stair_width) * TERRAIN_STEP, y + (-1 + s * stair_height) * TERRAIN_STEP),
-                        (x + (s * stair_width) * TERRAIN_STEP, y + (-1 + s * stair_height) * TERRAIN_STEP),
-                    ]
-                    self.fd_polygon.shape.vertices = poly
-                    t = self.world.CreateStaticBody(
-                        fixtures=self.fd_polygon)
-                    t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
-                    self.terrain.append(t)
-                counter = stair_steps * stair_width
-
-            elif state == STAIRS and not oneshot:
-                s = stair_steps * stair_width - counter - stair_height
-                n = s / stair_width
-                y = original_y + (n * stair_height) * TERRAIN_STEP
-
-            oneshot = False
-            self.terrain_y.append(y)
-            counter -= 1
-            if counter == 0:
-                counter = self.np_random.integers(TERRAIN_GRASS / 2, TERRAIN_GRASS)
-                if state == GRASS and hardcore:
-                    state = self.np_random.integers(1, _STATES_)
-                    oneshot = True
-                else:
-                    state = GRASS
-                    oneshot = True
-
-        self.terrain_poly = []
-        for i in range(TERRAIN_LENGTH - 1):
-            poly = [
-                (self.terrain_x[i], self.terrain_y[i]),
-                (self.terrain_x[i + 1], self.terrain_y[i + 1])
-            ]
-            self.fd_edge.shape.vertices = poly
-            t = self.world.CreateStaticBody(
-                fixtures=self.fd_edge)
-            color = (0.3, 1.0 if i % 2 == 0 else 0.8, 0.3)
-            t.color1 = color
-            t.color2 = color
-            self.terrain.append(t)
-            color = (0.4, 0.6, 0.3)
-            poly += [(poly[1][0], 0), (poly[0][0], 0)]
-            self.terrain_poly.append((poly, color))
-        self.terrain.reverse()
-
-    def _generate_clouds(self):
-        # Sorry for the clouds, couldn't resist
-        self.cloud_poly = []
-        for i in range(TERRAIN_LENGTH // 20):
-            x = self.np_random.uniform(0, TERRAIN_LENGTH) * TERRAIN_STEP
-            y = VIEWPORT_H / SCALE * 3 / 4
-            poly = [
-                (x + 15 * TERRAIN_STEP * math.sin(3.14 * 2 * a / 5) + self.np_random.uniform(0, 5 * TERRAIN_STEP),
-                 y + 5 * TERRAIN_STEP * math.cos(3.14 * 2 * a / 5) + self.np_random.uniform(0, 5 * TERRAIN_STEP))
-                for a in range(5)]
-            x1 = min([p[0] for p in poly])
-            x2 = max([p[0] for p in poly])
-            self.cloud_poly.append((poly, x1, x2))
-
-    def execution_reset(self):
-        scale_vector = (1.0 + (np.random.rand(8) * 2 - 1.0) * 0.5)
-        # scale_vector = np.clip(np.random.normal(1, 0.5, size=8), 0.25, 1.75)
+    def execution_reset(self, scale_vector):
         self.augment_env(scale_vector)
         self._destroy()
         self.world.contactListener_bug_workaround = ContactDetector(self)
@@ -569,6 +413,161 @@ class EvoBipedalWalker(gym.Env):
         self.timer += 1
 
         return np.array(state), reward, terminated, truncated, {}
+
+
+    def transit_execution(self):
+        self.stage = 'execution'
+
+    def augment_env(self, scale_vector):
+        self.scale_vector = np.copy(np.array(scale_vector, dtype=float))
+
+
+
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
+
+    def _destroy(self):
+        if not self.terrain: return
+        self.world.contactListener = None
+        for t in self.terrain:
+            self.world.DestroyBody(t)
+        self.terrain = []
+        self.world.DestroyBody(self.hull)
+        self.hull = None
+        for leg in self.legs:
+            self.world.DestroyBody(leg)
+        self.legs = []
+        self.joints = []
+
+    def _generate_terrain(self, hardcore):
+        GRASS, STUMP, STAIRS, PIT, _STATES_ = range(5)
+        state = GRASS
+        velocity = 0.0
+        y = TERRAIN_HEIGHT
+        counter = TERRAIN_STARTPAD
+        oneshot = False
+        self.terrain = []
+        self.terrain_x = []
+        self.terrain_y = []
+        for i in range(TERRAIN_LENGTH):
+            x = i * TERRAIN_STEP
+            self.terrain_x.append(x)
+
+            if state == GRASS and not oneshot:
+                velocity = 0.8 * velocity + 0.01 * np.sign(TERRAIN_HEIGHT - y)
+                if i > TERRAIN_STARTPAD: velocity += self.np_random.uniform(-1, 1) / SCALE  # 1
+                y += velocity
+
+            elif state == PIT and oneshot:
+                counter = self.np_random.integers(3, 5)
+                poly = [
+                    (x, y),
+                    (x + TERRAIN_STEP, y),
+                    (x + TERRAIN_STEP, y - 4 * TERRAIN_STEP),
+                    (x, y - 4 * TERRAIN_STEP),
+                ]
+                self.fd_polygon.shape.vertices = poly
+                t = self.world.CreateStaticBody(
+                    fixtures=self.fd_polygon)
+                t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
+                self.terrain.append(t)
+
+                self.fd_polygon.shape.vertices = [(p[0] + TERRAIN_STEP * counter, p[1]) for p in poly]
+                t = self.world.CreateStaticBody(
+                    fixtures=self.fd_polygon)
+                t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
+                self.terrain.append(t)
+                counter += 2
+                original_y = y
+
+            elif state == PIT and not oneshot:
+                y = original_y
+                if counter > 1:
+                    y -= 4 * TERRAIN_STEP
+
+            elif state == STUMP and oneshot:
+                counter = self.np_random.integers(1, 3)
+                poly = [
+                    (x, y),
+                    (x + counter * TERRAIN_STEP, y),
+                    (x + counter * TERRAIN_STEP, y + counter * TERRAIN_STEP),
+                    (x, y + counter * TERRAIN_STEP),
+                ]
+                self.fd_polygon.shape.vertices = poly
+                t = self.world.CreateStaticBody(
+                    fixtures=self.fd_polygon)
+                t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
+                self.terrain.append(t)
+
+            elif state == STAIRS and oneshot:
+                stair_height = +1 if self.np_random.rand() > 0.5 else -1
+                stair_width = self.np_random.integers(4, 5)
+                stair_steps = self.np_random.integers(3, 5)
+                original_y = y
+                for s in range(stair_steps):
+                    poly = [
+                        (x + (s * stair_width) * TERRAIN_STEP, y + (s * stair_height) * TERRAIN_STEP),
+                        (x + ((1 + s) * stair_width) * TERRAIN_STEP, y + (s * stair_height) * TERRAIN_STEP),
+                        (x + ((1 + s) * stair_width) * TERRAIN_STEP, y + (-1 + s * stair_height) * TERRAIN_STEP),
+                        (x + (s * stair_width) * TERRAIN_STEP, y + (-1 + s * stair_height) * TERRAIN_STEP),
+                    ]
+                    self.fd_polygon.shape.vertices = poly
+                    t = self.world.CreateStaticBody(
+                        fixtures=self.fd_polygon)
+                    t.color1, t.color2 = (1, 1, 1), (0.6, 0.6, 0.6)
+                    self.terrain.append(t)
+                counter = stair_steps * stair_width
+
+            elif state == STAIRS and not oneshot:
+                s = stair_steps * stair_width - counter - stair_height
+                n = s / stair_width
+                y = original_y + (n * stair_height) * TERRAIN_STEP
+
+            oneshot = False
+            self.terrain_y.append(y)
+            counter -= 1
+            if counter == 0:
+                counter = self.np_random.integers(TERRAIN_GRASS / 2, TERRAIN_GRASS)
+                if state == GRASS and hardcore:
+                    state = self.np_random.integers(1, _STATES_)
+                    oneshot = True
+                else:
+                    state = GRASS
+                    oneshot = True
+
+        self.terrain_poly = []
+        for i in range(TERRAIN_LENGTH - 1):
+            poly = [
+                (self.terrain_x[i], self.terrain_y[i]),
+                (self.terrain_x[i + 1], self.terrain_y[i + 1])
+            ]
+            self.fd_edge.shape.vertices = poly
+            t = self.world.CreateStaticBody(
+                fixtures=self.fd_edge)
+            color = (0.3, 1.0 if i % 2 == 0 else 0.8, 0.3)
+            t.color1 = color
+            t.color2 = color
+            self.terrain.append(t)
+            color = (0.4, 0.6, 0.3)
+            poly += [(poly[1][0], 0), (poly[0][0], 0)]
+            self.terrain_poly.append((poly, color))
+        self.terrain.reverse()
+
+    def _generate_clouds(self):
+        # Sorry for the clouds, couldn't resist
+        self.cloud_poly = []
+        for i in range(TERRAIN_LENGTH // 20):
+            x = self.np_random.uniform(0, TERRAIN_LENGTH) * TERRAIN_STEP
+            y = VIEWPORT_H / SCALE * 3 / 4
+            poly = [
+                (x + 15 * TERRAIN_STEP * math.sin(3.14 * 2 * a / 5) + self.np_random.uniform(0, 5 * TERRAIN_STEP),
+                 y + 5 * TERRAIN_STEP * math.cos(3.14 * 2 * a / 5) + self.np_random.uniform(0, 5 * TERRAIN_STEP))
+                for a in range(5)]
+            x1 = min([p[0] for p in poly])
+            x2 = max([p[0] for p in poly])
+            self.cloud_poly.append((poly, x1, x2))
+
 
     def render(self, mode='rgb_array', close=False):
         if close:

@@ -119,7 +119,7 @@ class AgentPPO2(Agent):
             self.save_best_flag = False
 
     def test(self):
-        _, log_eval = self.sample(10000)
+        _, log_eval = self.sample(10000, mean_action=True)
 
     def optimize(self, iter):
         """
@@ -129,7 +129,7 @@ class AgentPPO2(Agent):
 
         """ generate multiple trajectories that reach the minimum batch_size """
         t0 = time.time()
-        batch, log = self.sample(self.cfg.batch_size)
+        batch, log = self.sample(self.cfg.batch_size, mean_action=False)
         t1 = time.time()
         self.logger.info('Sampling time: {:.2f} s by {} slaves'.format(t1 - t0, self.num_threads))
         self.update_params(batch, iter)
@@ -137,7 +137,7 @@ class AgentPPO2(Agent):
         self.logger.info('Policy update time: {:.2f} s'.format(t2 - t1))
 
         """ evaluate with determinstic action (remove noise for exploration) """
-        _, log_eval = self.sample(self.cfg.eval_batch_size, mean_action=self.mean_action)
+        _, log_eval = self.sample(self.cfg.eval_batch_size, mean_action=True)
 
         self.tb_logger.add_scalar('train_R_avg', log['avg_reward'], iter)
         self.tb_logger.add_scalar('eval_R_eps_avg', log_eval['avg_reward'], iter)

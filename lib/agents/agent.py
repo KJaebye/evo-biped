@@ -54,9 +54,10 @@ def collect_samples(pid, queue, env, policy, custom_reward, mean_action, render,
             state_var = torch.tensor(state).unsqueeze(0)
             with torch.no_grad():
                 if mean_action:
-                    action = policy(state_var)[0].numpy()
+                    action = policy(state_var)[0][0].numpy()
                 else:
                     action = policy.select_action(state_var)[0].numpy()
+            print(action)
             action = int(action) if policy.is_disc_action else action.astype(np.float64)
 
             observation, reward, terminated, truncated, info = env.step(action)
@@ -134,7 +135,7 @@ class Agent:
         self.running_state = running_state
         self.num_threads = num_threads
 
-    def sample(self, min_batch_size, mean_action=False, render=False):
+    def sample(self, min_batch_size, mean_action=False, render=False, training=True):
         t_start = time.time()
         to_device(torch.device('cpu'), self.policy)
         thread_batch_size = int(math.floor(min_batch_size / self.num_threads))

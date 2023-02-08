@@ -7,6 +7,7 @@
 
 import os
 import gym
+import time
 import pickle
 from lib.core.zfilter import ZFilter
 from lib.utils.torch import *
@@ -27,6 +28,7 @@ class Filter(ZFilter):
     def __call__(self, x, update=True):
         x_fixed = x[:self.fixed_dim]
         x = x[self.fixed_dim:]
+
         if update and not self.fix:
             self.rs.push(x)
         if self.demean:
@@ -56,7 +58,7 @@ class EvoBipedalWalkerAgent(AgentPPO2):
     def setup_env(self):
         from custom.envs.evo_bipedalwalker import EvoBipedalWalker
         self.env = EvoBipedalWalker()
-        self.env.action_space.seed(42)
+        self.env.seed(42)
 
         if not self.training:
             self.wrap_env_monitor()
