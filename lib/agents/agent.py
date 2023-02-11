@@ -52,12 +52,17 @@ def collect_samples(pid, queue, env, policy, custom_reward, mean_action, render,
 
         for t in range(10000):
             state_var = torch.tensor(state).unsqueeze(0)
-            with torch.no_grad():
-                if mean_action:
-                    action = policy(state_var)[0][0].numpy()
-                else:
-                    action = policy.select_action(state_var)[0].numpy()
-            print(action)
+            # with torch.no_grad():
+            #     if mean_action:
+            #         action = policy(state_var)[0][0].numpy()
+            #     else:
+            #         action = policy.select_action(state_var)[0].numpy()
+
+            if mean_action:
+                action = policy(state_var)[0][0].detach().numpy()
+            else:
+                action = policy.select_action(state_var)[0].detach().numpy()
+
             action = int(action) if policy.is_disc_action else action.astype(np.float64)
 
             observation, reward, terminated, truncated, info = env.step(action)
@@ -76,6 +81,9 @@ def collect_samples(pid, queue, env, policy, custom_reward, mean_action, render,
             mask = 0 if terminated else 1
 
             memory.push(state, action, mask, next_state, reward)
+
+            # rendering
+            # env.render()
 
             if terminated or truncated:
                 break

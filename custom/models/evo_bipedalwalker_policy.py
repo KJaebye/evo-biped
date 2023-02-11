@@ -1,10 +1,10 @@
-
 import torch
 import math
 import numpy as np
 import torch.nn as nn
 from lib.core.running_norm import RunningNorm
 from lib.models.mlp import MLP
+
 
 def normal_log_density(x, mean, log_std, std):
     var = std.pow(2)
@@ -32,7 +32,7 @@ class EvoBipedalWalkerPolicy(nn.Module):
                              activation=self.cfg.policy_spec['scale_htype'])
         cur_dim = self.scale_mlp.out_dim
         self.scale_state_mean = nn.Linear(cur_dim, self.scale_state_dim)
-        self.scale_state_mean.weight.data.mul_(0.1)
+        self.scale_state_mean.weight.data.mul_(1)
         self.scale_state_mean.bias.data.mul_(0.0)
         self.scale_state_log_std = nn.Parameter(
             torch.ones(1, self.scale_state_dim) * self.cfg.policy_spec['scale_log_std'])
@@ -45,11 +45,10 @@ class EvoBipedalWalkerPolicy(nn.Module):
                                activation=self.cfg.policy_spec['control_htype'])
         cur_dim = self.control_mlp.out_dim
         self.control_action_mean = nn.Linear(cur_dim, self.control_action_dim)
-        # self.control_action_mean.weight.data.mul_(1)
-        # self.control_action_mean.bias.data.mul_(0.0)
+        self.control_action_mean.weight.data.mul_(0.1)
+        self.control_action_mean.bias.data.mul_(0.0)
         self.control_action_log_std = nn.Parameter(
             torch.ones(1, self.control_action_dim) * self.cfg.policy_spec['control_log_std'])
-
 
         self.is_disc_action = False
 
@@ -63,34 +62,64 @@ class EvoBipedalWalkerPolicy(nn.Module):
             """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
             Important:   Using network to generate a morphology while evaluating.
             """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-            # random scale vector
-            random_scale_vector = self.agent.env.action_space.sample()[:self.scale_state_dim]
-            x = self.scale_norm(torch.tensor(random_scale_vector))
+            # scale_state = torch.tensor(np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=float)).unsqueeze(0)
+
+            # random as inputs
+            scale_state = (1.0 + (torch.rand(8) * 2 - 1.0) * 0.5).unsqueeze(0)
+
+            # iteration as inputs
+            # scale_state = torch.tensor(self.agent.env.scale_vector).unsqueeze(0)
+
+            x = self.scale_norm(scale_state)
             x = self.scale_mlp(x)
             scale_state_mean = self.scale_state_mean(x)
             # limit the scale vector to [, ]
-            scale_state_mean = torch.ones([1, 8], dtype=torch.float) + scale_state_mean * 0.75
+            scale_state_mean = torch.ones([1, 8], dtype=torch.float) + scale_state_mean * 0.5
+            self.agent.env.scale_vector = scale_state_mean.detach().numpy()[0]
+
             scale_state_log_std = self.scale_state_log_std.expand_as(scale_state_mean).exp()
             scale_state_std = torch.exp(scale_state_log_std)
 
-            control_action = np.array([0, 0, 0, 0])
-            action = np.concatenate((scale_state_mean.squeeze(0), control_action))
-            action = torch.tensor(action).unsqueeze(0).unsqueeze(0)
-            return action
+            control_action = torch.zeros([1, 4], dtype=torch.float)
+            action = torch.cat((scale_state_mean, control_action), -1)
+
+            if not self.agent.training:
+                self.agent.logger.info(
+                    "Eval scale vector: {:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}".
+                    format(self.agent.env.scale_vector[0],
+                           self.agent.env.scale_vector[1],
+                           self.agent.env.scale_vector[2],
+                           self.agent.env.scale_vector[3],
+                           self.agent.env.scale_vector[4],
+                           self.agent.env.scale_vector[5],
+                           self.agent.env.scale_vector[6],
+                           self.agent.env.scale_vector[7]))
+
+            self.agent.logger.info("Eval scale vector: {:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}".
+                                   format(self.agent.env.scale_vector[0],
+                                          self.agent.env.scale_vector[1],
+                                          self.agent.env.scale_vector[2],
+                                          self.agent.env.scale_vector[3],
+                                          self.agent.env.scale_vector[4],
+                                          self.agent.env.scale_vector[5],
+                                          self.agent.env.scale_vector[6],
+                                          self.agent.env.scale_vector[7]))
+
+            return action, scale_state_log_std, scale_state_std
 
         if self.agent.env.stage == 'execution':
-            scale_vector = x.squeeze(0)[:self.scale_state_dim].numpy()
-            assert scale_vector.all() == self.agent.env.scale_vector.all()
+            scale_state = x[:, :self.scale_state_dim]
+            assert scale_state.all() == self.agent.env.scale_vector.all()
 
             x = self.control_norm(x)
             x = self.control_mlp(x)
             control_action_mean = self.control_action_mean(x)
             control_action_log_std = self.control_action_log_std.expand_as(control_action_mean).exp()
             control_action_std = torch.exp(control_action_log_std)
-            action_mean = torch.tensor(np.concatenate((scale_vector, control_action_mean[0]))).unsqueeze(0)
+
+            action_mean = torch.cat((scale_state, control_action_mean), -1)
 
             return action_mean, control_action_log_std, control_action_std
-
 
     def _forward(self, x):
         """
@@ -100,12 +129,11 @@ class EvoBipedalWalkerPolicy(nn.Module):
         :return: 4 dimension tensor for 'execution stage'.
         """
         if self.agent.env.stage == 'scale_transform':
-            x = x[:self.scale_state_dim]
-            x = self.scale_norm(torch.tensor(x))
+            x = self.scale_norm(x)
             x = self.scale_mlp(x)
             scale_state_mean = self.scale_state_mean(x)
             # limit the scale vector to [, ]
-            scale_state_mean = torch.ones([1, 8], dtype=torch.float) + scale_state_mean * 0.75
+            scale_state_mean = torch.ones([1, 8], dtype=torch.float) + scale_state_mean * 0.5
             scale_state_log_std = self.scale_state_log_std.expand_as(scale_state_mean).exp()
             scale_state_std = torch.exp(scale_state_log_std)
             return scale_state_mean, scale_state_log_std, scale_state_std
@@ -118,36 +146,44 @@ class EvoBipedalWalkerPolicy(nn.Module):
             control_action_std = torch.exp(control_action_log_std)
             return control_action_mean, control_action_log_std, control_action_std
 
-
     def select_action(self, x):
         """
         :param x: the input is the state of RL
         :return: return the action of RL. The scale vector is listed at first then control action.
         """
         if self.agent.env.stage == 'scale_transform':
-
             """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
             Important:    Select a random morphology while training. (mean_action==False)
                           Using network to generate a morphology while evaluating. (mean_action==True)
             """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-            random_scale_vector = self.agent.env.action_space.sample()[:self.scale_state_dim]
-            # scale_vector = np.clip(np.random.normal(1, 0.5, size=8), 0.25, 1.75)
-            scale_vector = random_scale_vector
+            # fixed inputs
+            # scale_state = torch.tensor(np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=float)).unsqueeze(0)
 
-            control_action = np.array([0, 0, 0, 0])
-            action = np.concatenate((scale_vector, control_action))
-            action = torch.tensor(action).unsqueeze(0)
+            # random as inputs
+            scale_state = (1.0 + (torch.rand(8) * 2 - 1.0) * 0.5).unsqueeze(0)
+            self.input_scale_state = scale_state
+
+            # iteration as inputs
+            # scale_state = torch.tensor(self.agent.env.scale_vector).unsqueeze(0)
+
+            scale_state_mean, _, scale_std = self._forward(scale_state)
+
+            control_action = torch.zeros([1, 4], dtype=torch.float)
+            self.agent.env.scale_vector = scale_state_mean.detach().numpy()[0]
+
+            action = torch.cat((scale_state_mean, control_action), -1)
+
             return action
 
         elif self.agent.env.stage == 'execution':
-            scale_vector = x.squeeze(0)[:self.scale_state_dim].numpy()
-            assert scale_vector.all() == self.agent.env.scale_vector.all()
+            scale_state = x[:, :self.scale_state_dim]
+            assert scale_state.all() == self.agent.env.scale_vector.all()
 
             control_action_mean, _, control_action_std = self._forward(x)
             control_action = torch.normal(control_action_mean, control_action_std)
 
-            action = np.concatenate((scale_vector, control_action[0]))
-            action = torch.tensor(action).unsqueeze(0)
+            action = torch.cat((scale_state, control_action), -1)
+
             return action
         else:
             pass

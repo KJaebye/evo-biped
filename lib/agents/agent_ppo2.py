@@ -23,7 +23,7 @@ from lib.core.utils import *
 
 
 class AgentPPO2(Agent):
-    def __init__(self, cfg, env, logger, dtype, device, num_threads, training=True, checkpoint=0, mean_action=True):
+    def __init__(self, cfg, env, logger, dtype, device, num_threads, training=True, checkpoint=0, mean_action=False):
         self.cfg = cfg
         self.env = env
         self.logger = logger
@@ -125,11 +125,11 @@ class AgentPPO2(Agent):
         """
         Optimize and main part of logging.
         """
-        self.logger.info('#------------------------ Iteration {} --------------------------#'.format(iter))
+        self.logger.info('#-------------------------------- Iteration {} ----------------------------------#'.format(iter))
 
         """ generate multiple trajectories that reach the minimum batch_size """
         t0 = time.time()
-        batch, log = self.sample(self.cfg.batch_size, mean_action=False)
+        batch, log = self.sample(self.cfg.batch_size)
         t1 = time.time()
         self.logger.info('Sampling time: {:.2f} s by {} slaves'.format(t1 - t0, self.num_threads))
         self.update_params(batch, iter)
@@ -137,7 +137,7 @@ class AgentPPO2(Agent):
         self.logger.info('Policy update time: {:.2f} s'.format(t2 - t1))
 
         """ evaluate with determinstic action (remove noise for exploration) """
-        _, log_eval = self.sample(self.cfg.eval_batch_size, mean_action=True)
+        _, log_eval = self.sample(self.cfg.eval_batch_size, mean_action=self.mean_action)
 
         self.tb_logger.add_scalar('train_R_avg', log['avg_reward'], iter)
         self.tb_logger.add_scalar('eval_R_eps_avg', log_eval['avg_reward'], iter)
@@ -160,6 +160,9 @@ class AgentPPO2(Agent):
         with torch.no_grad():
             values = self.value_net(states)
             fixed_log_probs = self.policy_net.get_log_prob(states, actions)
+
+        # values = self.value_net(states)
+        # fixed_log_probs = self.policy_net.get_log_prob(states, actions)
 
         """get advantage estimation from the trajectories"""
         advantages, returns = estimate_advantages(rewards, masks, values, self.cfg.gamma, self.cfg.tau, self.device)
@@ -219,6 +222,9 @@ class AgentPPO2(Agent):
         # policy_surr = -torch.min(surr1, surr2).mean() - self.cfg.entropy_coeff * entropy
         optimizer_policy.zero_grad()
         policy_surr.backward()
+
+        # print(policy_net.input_scale_state.grad_fn)
+
         torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 40)
         optimizer_policy.step()
 

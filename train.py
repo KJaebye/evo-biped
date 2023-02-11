@@ -48,13 +48,13 @@ if __name__ == "__main__":
     """ create agent """
     if cfg.domain == 'bipedalwalker':
         agent = BipedalWalkerAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
-                         num_threads=args.num_threads, training=True, checkpoint=start_iter)
+                         num_threads=args.num_threads, training=True, checkpoint=start_iter, mean_action=True)
     elif cfg.domain == 'evo_bipedalwalker':
         agent = EvoBipedalWalkerAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
-                         num_threads=args.num_threads, training=True, checkpoint=start_iter)
+                         num_threads=args.num_threads, training=True, checkpoint=start_iter, mean_action=True)
     else:
         agent = GeneralAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
-                         num_threads=args.num_threads, training=True, checkpoint=start_iter)
+                         num_threads=args.num_threads, training=True, checkpoint=start_iter, mean_action=True)
 
     for iter in range(start_iter, start_iter + cfg.max_iter_num):
         agent.optimize(iter)

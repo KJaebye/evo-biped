@@ -12,7 +12,7 @@ from lib.agents.agent_ppo2 import AgentPPO2
 
 
 class BipedalWalkerAgent(AgentPPO2):
-    def __init__(self, task, domain, cfg, logger, dtype, device, num_threads, training=True, checkpoint=0):
+    def __init__(self, task, domain, cfg, logger, dtype, device, num_threads, training=True, checkpoint=0, mean_action=False):
         self.cfg = cfg
         self.logger = logger
         self.dtype = dtype
@@ -23,7 +23,7 @@ class BipedalWalkerAgent(AgentPPO2):
         self.setup_env()
 
         super().__init__(self.cfg, self.env, self.logger, self.dtype, self.device, self.num_threads,
-                         training=self.training, checkpoint=checkpoint)
+                         training=self.training, checkpoint=checkpoint, mean_action=mean_action)
 
     def setup_env(self):
         from custom.envs.bipedalwalker import AugmentBipedalWalker

@@ -53,7 +53,6 @@ class Policy(nn.Module):
         action_mean = self.action_mean(x)
         action_log_std = self.action_log_std.expand_as(action_mean)
         action_std = torch.exp(action_log_std)
-
         return action_mean, action_log_std, action_std
 
     def select_action(self, x):

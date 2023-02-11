@@ -2,6 +2,7 @@ import sys, math
 import numpy as np
 
 import Box2D
+import torch
 from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener)
 
 import gym
@@ -120,8 +121,15 @@ class EvoBipedalWalker(gym.Env):
         high = np.array([np.inf] * 32)
         # self.action_space = spaces.Box(np.array([-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
         #                                np.array([+1, +1, +1, +1, +1, +1, +1, +1, +1, +1, +1, +1]))
-        self.action_space = spaces.Box(np.array([0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, -1, -1, -1, -1]),
-                                       np.array([1.75, 1.75, 1.75, 1.75, 1.75, 1.75, 1.75, 1.75, +1, +1, +1, +1]))
+
+        scale_min, scale_max = 0.5, 1.5
+        self.action_space = spaces.Box(np.array([scale_min, scale_min, scale_min, scale_min,
+                                                 scale_min, scale_min, scale_min, scale_min,
+                                                 -1, -1, -1, -1]),
+                                       np.array([scale_max, scale_max, scale_max, scale_max,
+                                                 scale_max, scale_max, scale_max, scale_max,
+                                                 +1, +1, +1, +1]))
+
         self.observation_space = spaces.Box(-high, high)
 
         # dimension define
@@ -140,38 +148,42 @@ class EvoBipedalWalker(gym.Env):
         self.timer = 0
 
     def reset(self):
-        original_scale_vector = np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=float)
-        original_execution_state, _ = self.execution_reset(original_scale_vector)
-        original_state = np.concatenate((original_scale_vector, original_execution_state))
+        original_execution_state, _ = self.execution_reset()
+        original_state = np.concatenate((self.scale_vector, original_execution_state))
         self.stage = 'scale_transform'
         self.cur_t = 0
         return original_state, {}
 
     def step(self, action):
         self.cur_t += 1
-
         if self.stage == 'scale_transform':
-            self.transit_execution()
-            scale_vector = action[:self.scale_state_dim]
-            control_state, info = self.execution_reset(scale_vector)
+            scale_state = action[:self.scale_state_dim]
+            assert scale_state.all() == self.scale_vector.all()
+            exec_state, info = self.execution_reset()
 
-            assert scale_vector.all() == self.scale_vector.all()
-            state = np.concatenate((scale_vector, control_state))
+            exec_state = torch.from_numpy(exec_state)
+            scale_state = torch.from_numpy(self.scale_vector)
+            state = torch.cat((scale_state, exec_state))
             reward = 0.0
             terminated = False
             truncated = False
+            self.transit_execution()
             return state, reward, terminated, truncated, {}
 
         elif self.stage == 'execution':
             action = action[self.scale_state_dim:]
-            state, reward, terminated, truncated, info = self.execution_step(action)
-            state = np.concatenate((self.scale_vector, state))
+            exec_state, reward, terminated, truncated, info = self.execution_step(action)
+
+            exec_state = torch.from_numpy(exec_state)
+            scale_state = torch.from_numpy(self.scale_vector)
+            state = torch.cat((scale_state, exec_state))
             return state, reward, terminated, truncated, {}
+
         else:
             pass
 
-    def execution_reset(self, scale_vector):
-        self.augment_env(scale_vector)
+    def execution_reset(self):
+        self.augment_env(self.scale_vector)
         self._destroy()
         self.world.contactListener_bug_workaround = ContactDetector(self)
         self.world.contactListener = self.world.contactListener_bug_workaround
@@ -420,8 +432,6 @@ class EvoBipedalWalker(gym.Env):
 
     def augment_env(self, scale_vector):
         self.scale_vector = np.copy(np.array(scale_vector, dtype=float))
-
-
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
