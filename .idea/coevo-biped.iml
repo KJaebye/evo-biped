@@ -1,7 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230218_075454/log" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230218_075454/models" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230218_075454/tb" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230218_075454/video" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230307_181109/log" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230307_181109/models" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230307_181109/tb" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230307_181109/video" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230308_201450/log" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230308_201450/models" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230308_201450/tb" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230308_201450/video" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230308_220525/log" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230308_220525/models" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230308_220525/tb" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/evo_bipedalwalker/easy/20230308_220525/video" />
+      <excludeFolder url="file://$MODULE_DIR$/tmp/bipedalwalker" />
+    </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>

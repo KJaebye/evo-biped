@@ -37,6 +37,7 @@ class AgentPPO2(Agent):
         self.mean_action = mean_action
 
         self.setup_networks()
+
         if training:
             self.setup_tb_logger()
         self.save_best_flag = False
@@ -45,9 +46,9 @@ class AgentPPO2(Agent):
         if checkpoint != 0 or not training:
             self.load_checkpoint(checkpoint)
 
+        self.last = torch.tensor([0, 0, 0, 0])
+
     def setup_networks(self):
-        # print(self.env.observation_space)
-        # print(self.env.action_space)
 
         self.running_state = ZFilter((self.env.observation_space.shape[0]), clip=5)
 
@@ -119,7 +120,7 @@ class AgentPPO2(Agent):
             self.save_best_flag = False
 
     def test(self):
-        _, log_eval = self.sample(10000, mean_action=True)
+        _, log_eval = self.sample(10000, mean_action=True, training=False)
 
     def optimize(self, iter):
         """
@@ -160,9 +161,6 @@ class AgentPPO2(Agent):
         with torch.no_grad():
             values = self.value_net(states)
             fixed_log_probs = self.policy_net.get_log_prob(states, actions)
-
-        # values = self.value_net(states)
-        # fixed_log_probs = self.policy_net.get_log_prob(states, actions)
 
         """get advantage estimation from the trajectories"""
         advantages, returns = estimate_advantages(rewards, masks, values, self.cfg.gamma, self.cfg.tau, self.device)
@@ -222,8 +220,6 @@ class AgentPPO2(Agent):
         # policy_surr = -torch.min(surr1, surr2).mean() - self.cfg.entropy_coeff * entropy
         optimizer_policy.zero_grad()
         policy_surr.backward()
-
-        # print(policy_net.input_scale_state.grad_fn)
 
         torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 40)
         optimizer_policy.step()

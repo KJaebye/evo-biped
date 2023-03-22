@@ -9,11 +9,10 @@ import torch
 import numpy as np
 import argparse
 
-from config.config import Config
+from lib.config.config import Config
 from utils.logger import Logger
-from custom.agents.general_agent import GeneralAgent
-from custom.agents.bipedalwalker_agent import BipedalWalkerAgent
-from custom.agents.evo_bipedalwalker_agent import EvoBipedalWalkerAgent
+from custom.bipedalwalker.bipedalwalker_agent import BipedalWalkerAgent
+from custom.evo_bipedalwalker.evo_bipedalwalker_agent import EvoBipedalWalkerAgent
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -26,7 +25,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    """ load env configs and training settings """
+    """ load envs configs and training settings """
     cfg = Config(args.domain, args.task, rec=args.rec)
 
     """ set torch and cuda """
@@ -58,6 +57,6 @@ if __name__ == "__main__":
         agent = EvoBipedalWalkerAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
                          num_threads=1, training=False, checkpoint=iter)
     else:
-        agent = GeneralAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
-                         num_threads=1, training=False, checkpoint=iter)
+        pass
+
     agent.test()

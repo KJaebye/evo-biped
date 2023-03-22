@@ -18,7 +18,7 @@ class Value(nn.Module):
         elif activation == 'sigmoid':
             self.activation = torch.sigmoid
 
-        self.norm = RunningNorm(state_dim)
+        self.value_norm = RunningNorm(state_dim)
         self.affine_layers = nn.ModuleList()
         last_dim = state_dim
         for nh in hidden_size:
@@ -30,7 +30,7 @@ class Value(nn.Module):
         self.value_head.bias.data.mul_(0.0)
 
     def forward(self, x):
-        x = self.norm(x)
+        x = self.value_norm(x)
         for affine in self.affine_layers:
             x = self.activation(affine(x))
 

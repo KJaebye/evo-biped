@@ -7,16 +7,15 @@
 import logging
 import torch
 import numpy as np
-from config.get_args import get_args
-from config.config import Config
+from lib.config.get_args import get_args
+from lib.config.config import Config
 from utils.logger import Logger
-from custom.agents.general_agent import GeneralAgent
-from custom.agents.bipedalwalker_agent import BipedalWalkerAgent
-from custom.agents.evo_bipedalwalker_agent import EvoBipedalWalkerAgent
+from custom.bipedalwalker.bipedalwalker_agent import BipedalWalkerAgent
+from custom.evo_bipedalwalker.evo_bipedalwalker_agent import EvoBipedalWalkerAgent
 
 if __name__ == "__main__":
     args = get_args()
-    """ load env configs and training settings """
+    """ load envs configs and training settings """
     cfg = Config(args.domain, args.task, rec=args.rec)
 
     """ set torch and cuda """
@@ -53,8 +52,7 @@ if __name__ == "__main__":
         agent = EvoBipedalWalkerAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
                          num_threads=args.num_threads, training=True, checkpoint=start_iter, mean_action=True)
     else:
-        agent = GeneralAgent(args.task, args.domain, cfg, logger, dtype=dtype, device=device,
-                         num_threads=args.num_threads, training=True, checkpoint=start_iter, mean_action=True)
+        pass
 
     for iter in range(start_iter, start_iter + cfg.max_iter_num):
         agent.optimize(iter)

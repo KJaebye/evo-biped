@@ -8,6 +8,7 @@ import math
 import torch.nn as nn
 import torch
 from lib.core.running_norm import RunningNorm
+from lib.core.distributions import DiagGaussian
 
 def normal_entropy(std):
     var = std.pow(2)
@@ -54,6 +55,7 @@ class Policy(nn.Module):
         action_log_std = self.action_log_std.expand_as(action_mean)
         action_std = torch.exp(action_log_std)
         return action_mean, action_log_std, action_std
+
 
     def select_action(self, x):
         action_mean, _, action_std = self.forward(x)
