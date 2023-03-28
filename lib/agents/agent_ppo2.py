@@ -39,10 +39,12 @@ class AgentPPO2(Agent):
         self.setup_networks()
 
         if training:
+            # setup tensorboard logger
             self.setup_tb_logger()
         self.save_best_flag = False
 
         super().__init__(self.env, self.policy_net, self.device, running_state=self.running_state, num_threads=self.num_threads)
+
         if checkpoint != 0 or not training:
             self.load_checkpoint(checkpoint)
 

@@ -37,10 +37,15 @@ class Config:
         self.rec = rec
 
         # load .yml
-        cfg_path = './lib/config/cfg/**/%s/%s.yml' % (domain, task)
-        files = glob.glob(cfg_path, recursive=True)
-        assert len(files) == 1, "{} file(s) is/are found.".format(len(files))
-        cfg = yaml.safe_load(open(files[0], 'r'))
+        if self.rec is None:
+            cfg_path = './lib/config/cfg/**/%s/%s.yml' % (domain, task)
+            files = glob.glob(cfg_path, recursive=True)
+            assert len(files) == 1, "{} file(s) is/are found.".format(len(files))
+            cfg = yaml.safe_load(open(files[0], 'r'))
+        else:
+            cfg_path = './tmp/%s/%s/%s/%s.yml' % (domain, task, rec, task)
+            assert os.path.exists(cfg_path), 'This config file does not exist!'
+            cfg = yaml.safe_load(open(cfg_path, 'r'))
 
         # training config
         self.env_name = cfg.get('env_name')

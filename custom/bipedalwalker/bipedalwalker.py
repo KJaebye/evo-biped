@@ -167,7 +167,7 @@ class AugmentBipedalWalker(gym.Env):
                 y += velocity
 
             elif state == PIT and oneshot:
-                counter = self.np_random.randint(3, 5)
+                counter = self.np_random.integers(3, 5)
                 poly = [(x, y), (x + TERRAIN_STEP, y), (x + TERRAIN_STEP, y - 4 * TERRAIN_STEP),
                         (x, y - 4 * TERRAIN_STEP)]
                 self.fd_polygon.shape.vertices = poly
@@ -188,7 +188,7 @@ class AugmentBipedalWalker(gym.Env):
                     y -= 4 * TERRAIN_STEP
 
             elif state == STUMP and oneshot:
-                counter = self.np_random.randint(1, 3)
+                counter = self.np_random.integers(1, 3)
                 poly = [(x, y), (x + counter * TERRAIN_STEP, y),
                         (x + counter * TERRAIN_STEP, y + counter * TERRAIN_STEP), (x, y + counter * TERRAIN_STEP), ]
                 self.fd_polygon.shape.vertices = poly
@@ -197,9 +197,9 @@ class AugmentBipedalWalker(gym.Env):
                 self.terrain.append(t)
 
             elif state == STAIRS and oneshot:
-                stair_height = +1 if self.np_random.rand() > 0.5 else -1
-                stair_width = self.np_random.randint(4, 5)
-                stair_steps = self.np_random.randint(3, 5)
+                stair_height = +1 if self.np_random.uniform(-1, 1) > 0.5 else -1
+                stair_width = self.np_random.integers(4, 5)
+                stair_steps = self.np_random.integers(3, 5)
                 original_y = y
                 for s in range(stair_steps):
                     poly = [(x + (s * stair_width) * TERRAIN_STEP, y + (s * stair_height) * TERRAIN_STEP),
