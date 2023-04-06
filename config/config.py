@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------------------------------------------- #
-#   @description: Set configurations of training or evaluation
+#   @description: Set configurations of training
 #   @author: Kangyao Huang
 #   @created date: 25.Oct.2022
 # ------------------------------------------------------------------------------------------------------------------- #
@@ -20,8 +20,6 @@
                     /model
                     /log
                     /tb
-    Results of the training are saved at /tmp in default, well-trained results are then moved to /results. Unless,
-    setting '--tmp' to False can save results in /results directly.
 """
 
 import glob
@@ -38,7 +36,7 @@ class Config:
 
         # load .yml
         if self.rec is None:
-            cfg_path = './lib/config/cfg/**/%s/%s.yml' % (domain, task)
+            cfg_path = './config/cfg/**/%s/%s.yml' % (domain, task)
             files = glob.glob(cfg_path, recursive=True)
             assert len(files) == 1, "{} file(s) is/are found.".format(len(files))
             cfg = yaml.safe_load(open(files[0], 'r'))

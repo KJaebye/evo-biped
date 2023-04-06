@@ -9,7 +9,7 @@ import torch
 import numpy as np
 import argparse
 
-from lib.config.config import Config
+from config.config import Config
 from utils.logger import Logger
 from custom.bipedalwalker.bipedalwalker_agent import BipedalWalkerAgent
 from custom.evo_bipedalwalker.evo_bipedalwalker_agent import EvoBipedalWalkerAgent

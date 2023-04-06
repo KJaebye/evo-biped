@@ -11,7 +11,7 @@ import logging
 import torch
 import argparse
 import numpy as np
-from lib.config.config import Config
+from config.config import Config
 from utils.logger import Logger
 from custom.bipedalwalker.bipedalwalker_agent import BipedalWalkerAgent
 from custom.evo_bipedalwalker.evo_bipedalwalker_agent import EvoBipedalWalkerAgent
@@ -80,7 +80,7 @@ if __name__ == "__main__":
                                    num_threads=args.num_threads, training=True, checkpoint=start_iter, mean_action=True)
 
         # save .yml file in logging directory
-        src_dir = './lib/config/cfg/bipedalwalker/'
+        src_dir = 'config/cfg/bipedalwalker/'
         target_dir = logger.output_dir + '/'
         cfg_path = src_dir + cfg.task + '.yml'
         assert os.path.exists(cfg_path), 'This cfg file does not exist!'
@@ -92,7 +92,7 @@ if __name__ == "__main__":
                                       num_threads=args.num_threads, training=True, checkpoint=start_iter, mean_action=True)
 
         # save .yml file in logging directory
-        src_dir = './lib/config/cfg/evo_bipedalwalker/'
+        src_dir = 'config/cfg/evo_bipedalwalker/'
         target_dir = logger.output_dir + '/'
         cfg_path = src_dir + cfg.task + '.yml'
         assert os.path.exists(cfg_path), 'This cfg file does not exist!'
